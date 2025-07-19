@@ -1,120 +1,151 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Tone from 'tone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, RefreshCw, Award, Volume2, VolumeX } from 'lucide-react';
+import { Settings, RefreshCw, Award, Volume2, VolumeX, PlayCircle, StopCircle, ArrowLeft, Star } from 'lucide-react';
 
 // --- FONT AND STYLE LOADER ---
-// This component injects the necessary fonts and custom CSS into the document,
-// replacing the need for an external CSS file.
 const GlobalStyles = () => {
     useEffect(() => {
-        // Add Google Fonts
         const fontLink = document.createElement('link');
         fontLink.href = "https://fonts.googleapis.com/css2?family=Open+Sans&family=OpenDyslexic:wght@400;700&display=swap";
         fontLink.rel = 'stylesheet';
         document.head.appendChild(fontLink);
-
-        // Add custom CSS for card animations
         const style = document.createElement('style');
         style.textContent = `
-          .perspective-1000 {
-            perspective: 1000px;
-          }
-          .preserve-3d {
-            transform-style: preserve-3d;
-          }
-          .backface-hidden {
-            backface-visibility: hidden;
-            -webkit-backface-visibility: hidden;
-            position: absolute;
-            width: 100%;
-            height: 100%;
-          }
-          .rotate-y-180 {
-            transform: rotateY(180deg);
-          }
+          .font-opensans { font-family: 'Open Sans', sans-serif; }
+          .font-opendyslexic { font-family: 'OpenDyslexic', sans-serif; }
+          .perspective-1000 { perspective: 1000px; }
+          .preserve-3d { transform-style: preserve-3d; }
+          .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; position: absolute; width: 100%; height: 100%; }
+          .rotate-y-180 { transform: rotateY(180deg); }
         `;
         document.head.appendChild(style);
-
-        return () => {
-          document.head.removeChild(fontLink);
-          document.head.removeChild(style);
-        };
-      }, []);
-
+        return () => { document.head.removeChild(fontLink); document.head.removeChild(style); };
+    }, []);
     return null;
 };
 
+// --- KERALA-THEMED CARD BACK PATTERN ---
+const CardBackPattern = ({ className }) => (
+    <svg className={className} viewBox="0 0 64 64" stroke="currentColor" strokeWidth="2" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 5 H54 L60 11 V53 L54 59 H10 L4 53 V11 Z" strokeWidth="2.5" />
+        <path d="M32 12 L20 20 L32 28 L44 20 Z" /><path d="M32 36 L20 44 L32 52 L44 44 Z" />
+        <path d="M28 32 L12 32 L20 44" /><path d="M36 32 L52 32 L44 44" />
+        <path d="M28 32 L20 20" /><path d="M36 32 L44 20" />
+    </svg>
+);
 
-// --- CARD BACK PATTERN (SVG ONLY) ---
-const CardBackPattern = ({ className }) => {
-    return (
-        <svg className={className} viewBox="0 0 64 64" stroke="currentColor" strokeWidth="2" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 5 H54 L60 11 V53 L54 59 H10 L4 53 V11 Z" strokeWidth="2.5" />
-            <circle cx="32" cy="32" r="12" />
-            <circle cx="32" cy="32" r="6" fill="currentColor" fillOpacity="0.3" />
-            <path d="M32 20 V 12 M32 44 V 52 M20 32 H 12 M44 32 H 52" />
-            <path d="M22 22 L 16 16 M42 22 L 48 16 M22 42 L 16 48 M42 42 L 48 48" />
-            <path d="M12 12 L 18 12 L 12 18 Z" fill="currentColor" />
-            <path d="M52 12 L 46 12 L 52 18 Z" fill="currentColor" />
-            <path d="M12 52 L 18 52 L 12 46 Z" fill="currentColor" />
-            <path d="M52 52 L 46 52 L 52 46 Z" fill="currentColor" />
-        </svg>
-    );
+// --- KERALA DATA (ICONS AND FACTS) ---
+const KERALA_DATA = {
+    Kathakali: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 12 C 44 12, 48 24, 48 32 C 48 48, 40 52, 32 52 C 24 52, 16 48, 16 32 C 16 24, 20 12, 32 12 Z" /><path d="M20 32 C 20 24, 24 20, 32 20 C 40 20, 44 24, 44 32" /><path d="M24 40 Q 32 44, 40 40" /><path d="M16 32 H 48" /><path d="M32 12 V 8" /><path d="M24 16 L 20 12" /><path d="M40 16 L 44 12" /></svg>, fact: "Kathakali is a classical Indian dance form known for its elaborate makeup and costumes." },
+    Theyyam: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M16 40 C 16 52, 48 52, 48 40 V 32 H 16 V 40 Z" /><path d="M32 32 V 24" /><path d="M24 24 H 40" /><path d="M32 8 A 24 24 0 0 1 56 32" /><path d="M32 8 A 24 24 0 0 0 8 32" /><path d="M28 44 h 8" /></svg>, fact: "Theyyam is a vibrant ritual dance from northern Kerala where artists embody deities." },
+    SnakeBoat: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M8 40 C 16 32, 48 32, 56 40" /><path d="M12 40 V 48 H 52 V 40" /><path d="M56 40 C 52 32, 48 20, 44 12" /><path d="M24 40 L 20 32" /><path d="M32 40 L 28 32" /><path d="M40 40 L 36 32" /><path d="M48 40 L 44 32" /></svg>, fact: "Known as 'Chundan Vallam', these boats are used in thrilling races during festivals." },
+    Chenda: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><ellipse cx="32" cy="32" rx="16" ry="20" /><path d="M16 32 L 48 32" /><path d="M20 20 L 12 12" /><path d="M44 20 L 52 12" /><path d="M20 44 L 12 52" /><path d="M44 44 L 52 52" /></svg>, fact: "The Chenda is a powerful cylindrical drum, essential to temple festivals in Kerala." },
+    Lamp: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M24 52 H 40" /><path d="M32 52 V 20" /><path d="M20 44 H 44" /><path d="M24 36 H 40" /><path d="M20 20 Q 32 12, 44 20" /><path d="M32 20 Q 30 12, 28 8" /></svg>, fact: "The 'Nilavilakku' is a traditional lamp symbolizing the removal of darkness." },
+    CoconutTree: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 56 V 16" /><path d="M32 16 C 48 16, 52 28, 52 32" /><path d="M32 16 C 16 16, 12 28, 12 32" /><path d="M32 16 C 32 8, 44 12, 44 20" /><path d="M32 16 C 32 8, 20 12, 20 20" /></svg>, fact: "Kerala is known as the 'Land of Coconuts', vital to its culture and cuisine." },
+    Muthukuda: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M12 32 A 20 20 0 0 1 52 32 H 12 Z" /><path d="M32 32 V 56" /><path d="M32 12 V 8" /><path d="M20 32 C 20 24, 24 20, 32 20 C 40 20, 44 24, 44 32" /><path d="M12 32 L 12 36" /><path d="M52 32 L 52 36" /><path d="M32 32 L 32 36" /></svg>, fact: "A decorative, sequined umbrella used in grand temple processions." },
+    Houseboat: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M8 48 L 56 48 L 52 40 L 12 40 Z" /><path d="M16 40 V 24 C 16 20, 20 16, 24 16 H 40 C 44 16, 48 20, 48 24 V 40" /><path d="M16 32 H 48" /></svg>, fact: "Called 'Kettuvallam', these are a unique attraction in Kerala's backwaters." },
+    Elephant: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M16 32 C 16 20, 24 12, 36 12 H 48 V 28 H 36" /><path d="M48 28 C 56 28, 56 40, 48 40 V 52 H 20 V 32" /><path d="M16 32 C 8 32, 8 44, 16 44 V 52" /><path d="M40 20 C 41 19, 42 19, 43 20" /></svg>, fact: "Elephants are deeply revered in Kerala and play a central role in temple festivals." },
+    Chilli: { icon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M20 20 C 20 44, 44 44, 44 20 C 36 32, 28 32, 20 20 Z" /><path d="M32 20 V 12 L 36 8" /></svg>, fact: "Chillies are a cornerstone of Kerala's spicy and flavorful cuisine." },
 };
+const ALL_CARD_TYPES = Object.keys(KERALA_DATA);
 
-// --- SVG ICONS ---
-const ANIMAL_ICONS = {
-    Cat: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 12C26 12 20 16 20 24V32H44V24C44 16 38 12 32 12Z" /><path d="M20 32C16 32 12 36 12 40V48H20" /><path d="M44 32C48 32 52 36 52 40V48H44" /><path d="M32 32V52" /><path d="M26 52H38" /><path d="M24 24C24 22 26 20 28 20" /><path d="M40 24C40 22 38 20 36 20" /></svg>,
-    Scarab: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 16C22 16 16 26 16 32C16 42 22 52 32 52C42 52 48 42 48 32C48 26 42 16 32 16Z" /><path d="M16 32H48" /><path d="M24 16V12" /><path d="M40 16V12" /><path d="M18 24L12 20" /><path d="M46 24L52 20" /><path d="M18 40L12 44" /><path d="M46 40L52 44" /></svg>,
-    Falcon: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M20 20C20 12 28 12 32 16C36 12 44 12 44 20V36H20V20Z" /><path d="M32 36V52" /><path d="M16 36H20" /><path d="M44 36H48" /><path d="M24 44L16 52" /><path d="M40 44L48 52" /><path d="M32 24C34 24 34 22 32 22C30 22 30 24 32 24Z" /></svg>,
-    Cobra: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 52V44C32 36 24 32 24 24C24 16 32 12 32 12C32 12 40 16 40 24C40 32 32 36 32 44Z" /><path d="M28 20H36" /></svg>,
-    Anubis: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 12L24 24V40H40V24L32 12Z" /><path d="M24 40V52H28" /><path d="M40 40V52H36" /><path d="M32 40V52" /><path d="M28 20L24 24" /><path d="M36 20L40 24" /></svg>,
-    Ibis: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 12C24 12 20 24 20 32H44C44 24 40 12 32 12Z" /><path d="M20 32C16 32 12 36 12 40V48H20" /><path d="M44 32C48 32 52 36 52 40V48H44" /><path d="M32 32V52" /><path d="M28 48H36" /><path d="M32 12C32 8 36 6 40 10" /></svg>,
-    Ankh: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M32 12 C38 12 44 18 44 24 C44 30 38 36 32 36 C26 36 20 30 20 24 C20 18 26 12 32 12 Z" /><path d="M32 36 L32 52" /><path d="M20 28 L44 28" /></svg>,
-    Crocodile: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M12 28 L24 28 L32 20 L52 28 L52 36 L12 36 Z" /><path d="M16 36 L16 44" /><path d="M24 36 L24 44" /><path d="M40 36 L40 44" /><path d="M48 36 L48 44" /><path d="M40 25 C41 24 42 24 43 25" /></svg>,
-    Vulture: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M24 16 C24 12 28 12 32 16 C36 12 40 12 40 16 V28 H24 Z" /><path d="M24 28 L12 40 L20 40 L32 28 L44 40 L52 40 L40 28" /><path d="M32 28 V48" /></svg>,
-    Hippo: ({ className }) => <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" xmlns="http://www.w3.org/2000/svg"><path d="M16 24 C16 16 48 16 48 24 V40 H16 Z" /><path d="M20 40 V48" /><path d="M44 40 V48" /><path d="M24 24 C24 22 26 20 28 20" /><path d="M40 24 C40 22 38 20 36 20" /></svg>,
-};
-const NORMAL_CARD_TYPES = ['Cat', 'Scarab', 'Falcon', 'Cobra', 'Anubis', 'Ibis'];
-const HARD_CARD_TYPES = Object.keys(ANIMAL_ICONS);
-const ALL_CARD_DATA = Object.keys(ANIMAL_ICONS);
+// --- LEVEL CONFIGURATION ---
+const LEVEL_CONFIG = [
+    { level: 1, title: "The Village Festival", story: "A grand festival is beginning! The air is filled with the sound of the Chenda drum. Can you find the matching pairs of cultural icons to get the celebration started?", cards: ['Kathakali', 'Theyyam', 'SnakeBoat', 'Chenda', 'Lamp', 'CoconutTree'], matchSize: 2, grid: 'grid-cols-4 aspect-square max-w-lg', endStory: { title: "The Dance of the Gods", text: "As the last pair was matched, the Kathakali dancer's story reached its climax. The crowd cheered, reminded of the timeless tales that dance through Kerala's heart. You've brought the festival to life!" } },
+    { level: 2, title: "The Backwater Journey", story: "As we travel through the serene backwaters on a Houseboat, many sights appear. This time, you must find three of a kind to continue our journey.", cards: ['Houseboat', 'Muthukuda', 'Elephant', 'Chilli', 'Lamp', 'CoconutTree', 'SnakeBoat', 'Chenda'], matchSize: 3, grid: 'grid-cols-6 aspect-[3/2] max-w-2xl', endStory: { title: "Whispers of the Water", text: "With the final triplet found, the houseboat drifted into a quiet lagoon. The setting sun painted the sky orange and gold, a perfect end to a peaceful journey on the water." } },
+    { level: 3, title: "The Grand Procession", story: "The final procession is here! It's a grand spectacle with all the elements of Kerala. Find the three matching symbols to complete the celebration!", cards: ALL_CARD_TYPES, matchSize: 3, grid: 'grid-cols-5 aspect-[5/4] max-w-xl', endStory: { title: "A Land of Wonders", text: "You did it! You've matched all the symbols of Kerala, from its dances and festivals to its nature and flavors. You now carry a piece of its magic with you. Well done!" } },
+];
 
 // --- AUDIO ENGINE ---
-const cardSynths = ALL_CARD_DATA.map(() => new Tone.Synth({ oscillator: { type: 'sine' } }).toDestination());
+const cardSynths = ALL_CARD_TYPES.map(() => new Tone.Synth({ oscillator: { type: 'sine' } }).toDestination());
 const specialSounds = { match: new Tone.Synth().toDestination(), mismatch: new Tone.Synth().toDestination(), win: new Tone.PolySynth(Tone.Synth).toDestination() };
-const bgmPlayer = new Tone.Player({ url: "/autism_bgm.mp3", loop: true, autostart: false, volume: -12 }).toDestination();
+const bgmPlayer = new Tone.Player({ url: "https://cdn.jsdelivr.net/gh/devoss-inc/files/soothing-lullaby.mp3", loop: true, autostart: false, volume: -12 }).toDestination();
 const playSound = (cardId) => { if (Tone.context.state !== 'running') Tone.context.resume(); const freq = 220 * Math.pow(2, ((cardId % cardSynths.length) * 2) / 12); cardSynths[cardId % cardSynths.length].triggerAttackRelease(freq, '8n'); };
 const playSpecialSound = (type) => { if (Tone.context.state !== 'running') Tone.context.resume(); const now = Tone.now(); if (type === 'match') { specialSounds.match.triggerAttackRelease('C4', '8n', now); specialSounds.match.triggerAttackRelease('G4', '8n', now + 0.2); } else if (type === 'mismatch') { specialSounds.mismatch.triggerAttackRelease('C3', '8n', now); } else if (type === 'win') { specialSounds.win.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '2n', now); } };
-const speak = (text) => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.rate = 1.2; speechSynthesis.speak(utterance); } };
+const speak = (text, onEndCallback) => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.rate = 1.2; utterance.onend = onEndCallback; speechSynthesis.speak(utterance); } else { if(onEndCallback) onEndCallback(); } };
+const stopSpeaking = () => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); } };
 
 // --- CARD COMPONENT ---
-const Card = React.memo(({ card, onCardClick, isFlipped, isMatched, isHighlighted, isHighContrast, isHardMode }) => {
-    const AnimalIcon = ANIMAL_ICONS[card.type];
+const Card = React.memo(({ card, onCardClick, isFlipped, isMatched, isHighlighted, isHighContrast, isSimpleMode }) => {
+    const { icon: KeralaIcon } = KERALA_DATA[card.type];
     const handleSelect = () => !isFlipped && !isMatched && onCardClick(card);
-    const frontBg = isHighContrast ? 'bg-white' : 'bg-yellow-400';
-    const frontText = isHighContrast ? 'text-black' : 'text-yellow-900';
-    const backBg = isHighContrast ? 'bg-black border-white' : 'bg-yellow-600 border-yellow-800';
-    const backIcon = isHighContrast ? 'text-white' : 'text-yellow-900';
+    const frontBg = isHighContrast ? 'bg-white' : 'bg-green-100';
+    const frontText = isHighContrast ? 'text-black' : 'text-green-900';
+    const backBg = isHighContrast ? 'bg-black border-white' : 'bg-green-800 border-green-900';
+    const backIcon = isHighContrast ? 'text-white' : 'text-green-100';
     
-    const isFaceUp = !isHardMode || isFlipped || isMatched;
+    const isFaceUp = isSimpleMode || isFlipped || isMatched;
 
     return (
         <div className={`w-full h-full perspective-1000 ${isMatched ? 'opacity-60' : ''}`} onClick={handleSelect} role="button" aria-pressed={isFlipped} aria-label={`${card.type} card`}>
             <motion.div className="relative w-full h-full preserve-3d" 
                 animate={{ rotateY: isFaceUp ? 180 : 0 }} 
                 transition={{ duration: 0.6 }}>
-                <div className={`absolute w-full h-full backface-hidden flex items-center justify-center rounded-lg shadow-lg ${isHighlighted ? 'ring-4 ring-cyan-400' : ''} ${backBg} border-2 overflow-hidden`}>
+                <div className={`absolute w-full h-full backface-hidden flex items-center justify-center rounded-lg shadow-lg ${isHighlighted ? 'ring-4 ring-teal-400' : ''} ${backBg} border-2 overflow-hidden`}>
                     <CardBackPattern className={`w-full h-full p-2 ${backIcon}`} />
                 </div>
                 <div className={`absolute w-full h-full backface-hidden flex flex-col items-center justify-center rounded-lg shadow-lg border-2 ${frontBg} ${frontText} rotate-y-180`}>
-                    <AnimalIcon className={`w-1/2 h-1/2 ${isHighContrast ? 'stroke-2' : ''}`} />
-                    <p className="mt-2 text-lg font-bold">{card.type}</p>
+                    <KeralaIcon className={`w-3/5 h-3/5 ${isHighContrast ? 'stroke-2' : ''}`} />
+                    <p className="mt-1 text-xs md:text-sm font-bold">{card.type}</p>
                 </div>
             </motion.div>
         </div>
     );
 });
+
+// --- MODAL COMPONENTS ---
+const StoryModal = ({ story, title, onStart, isSpeaking, onAutoSpeak, onManualSpeak, onStopSpeak }) => {
+    useEffect(() => { onAutoSpeak(story); }, [onAutoSpeak, story]);
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
+            <motion.div initial={{ scale: 0.7 }} animate={{ scale: 1 }} className="bg-green-800 p-8 rounded-xl shadow-2xl text-center max-w-lg w-full">
+                <h2 className="text-4xl font-bold mb-4 text-white" style={{ fontFamily: 'serif' }}>{title}</h2>
+                <p className="text-green-100 text-lg mb-6">{story}</p>
+                <div className="flex justify-center items-center space-x-4">
+                    <button onClick={onStart} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">Start Level</button>
+                    {isSpeaking ? <button onClick={onStopSpeak} className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700"><StopCircle /></button> : <button onClick={() => onManualSpeak(story)} className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700"><PlayCircle /></button>}
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+};
+
+const FactModal = ({ fact, onContinue, isSpeaking, onAutoSpeak, onManualSpeak, onStopSpeak }) => {
+    const { icon: Icon, name, text } = fact;
+    useEffect(() => { onAutoSpeak(text); }, [fact, onAutoSpeak]);
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
+            <motion.div initial={{ scale: 0.7 }} animate={{ scale: 1 }} className="bg-green-800 p-8 rounded-xl shadow-2xl text-center max-w-lg w-full flex flex-col items-center">
+                <div className="w-24 h-24 mb-4 p-4 bg-green-100 rounded-full"><Icon className="w-full h-full text-green-900" /></div>
+                <h2 className="text-3xl font-bold mb-2 text-white">{name}</h2>
+                <p className="text-green-100 text-base mb-6">{text}</p>
+                <div className="flex justify-center items-center space-x-4">
+                    <button onClick={onContinue} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">Continue</button>
+                    {isSpeaking ? <button onClick={onStopSpeak} className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700"><StopCircle /></button> : <button onClick={() => onManualSpeak(text)} className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700"><PlayCircle /></button>}
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+};
+
+const LevelEndModal = ({ story, onNext, onEnd, isSpeaking, onAutoSpeak, onManualSpeak, onStopSpeak }) => {
+    useEffect(() => { onAutoSpeak(story.text); }, [story, onAutoSpeak]);
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-10 p-4">
+            <div className={`p-8 rounded-xl text-center shadow-2xl bg-green-800 border-4`}>
+                <Award className="w-24 h-24 mx-auto mb-4 text-teal-300" />
+                <h2 className="text-4xl font-bold mb-2 text-white">{story.title}</h2>
+                <p className="text-xl mb-6 text-green-100">{story.text}</p>
+                <div className="flex justify-center items-center space-x-4">
+                    <button onClick={onEnd} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Change Level</button>
+                    {onNext && <button onClick={onNext} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">Next Level</button>}
+                    {isSpeaking ? <button onClick={onStopSpeak} className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700"><StopCircle /></button> : <button onClick={() => onManualSpeak(story.text)} className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700"><PlayCircle /></button>}
+                </div>
+            </div>
+        </motion.div>
+    );
+};
 
 // --- TOGGLE COMPONENT FOR SETTINGS ---
 const Toggle = ({ label, isEnabled, onToggle }) => (
@@ -129,7 +160,9 @@ const Toggle = ({ label, isEnabled, onToggle }) => (
 // --- MAIN APP COMPONENT ---
 export default function App() {
     const [gameState, setGameState] = useState('cover');
-    const [isHardMode, setIsHardMode] = useState(false);
+    const [currentLevel, setCurrentLevel] = useState(1);
+    const [unlockedLevel, setUnlockedLevel] = useState(1);
+    const [godMode, setGodMode] = useState(false);
     const [cards, setCards] = useState([]);
     const [flippedCards, setFlippedCards] = useState([]);
     const [matchedPairs, setMatchedPairs] = useState([]);
@@ -138,37 +171,70 @@ export default function App() {
     const [blindAssist, setBlindAssist] = useState(false);
     const [deafAssist, setDeafAssist] = useState(false);
     const [dyslexiaAssist, setDyslexiaAssist] = useState(false);
+    const [isStoryMode, setIsStoryMode] = useState(true);
+    const [isSimpleMode, setIsSimpleMode] = useState(false);
     const [isMuted, setIsMuted] = useState(true);
-    const [showCorrectPopup, setShowCorrectPopup] = useState(false);
-    const [highlightedIndex, setHighlightedIndex] = useState(-1);
-    const holdTimeoutRef = useRef(null);
-    const isHoldingRef = useRef(false);
+    const [showFact, setShowFact] = useState(null);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [ttsManuallyStopped, setTtsManuallyStopped] = useState(false);
+    const [isGameWon, setIsGameWon] = useState(false);
+    const [ttsFocusIndex, setTtsFocusIndex] = useState(0);
+
     const hasInteracted = useRef(false);
-    const isInitialMount = useRef(true);
+    const levelConfig = LEVEL_CONFIG[currentLevel - 1];
 
     const isHighContrast = blindAssist;
     const isGuideMode = blindAssist;
     const useOpenDyslexic = dyslexiaAssist;
 
+    useEffect(() => {
+        const savedLevel = localStorage.getItem('unlockedLevel');
+        if (savedLevel) {
+            setUnlockedLevel(parseInt(savedLevel, 10));
+        }
+    }, []);
+
+    const handleAutoSpeak = useCallback((text) => {
+        if (ttsManuallyStopped) return;
+        speak(text, () => setIsSpeaking(false));
+        setIsSpeaking(true);
+    }, [ttsManuallyStopped]);
+
+    const handleManualSpeak = useCallback((text) => {
+        setTtsManuallyStopped(false);
+        speak(text, () => setIsSpeaking(false));
+        setIsSpeaking(true);
+    }, []);
+
+    const handleStopSpeak = useCallback(() => {
+        stopSpeaking();
+        setIsSpeaking(false);
+        setTtsManuallyStopped(true);
+    }, []);
+
     const shuffleAndDeal = useCallback(() => {
-        const cardTypes = isHardMode ? HARD_CARD_TYPES : NORMAL_CARD_TYPES;
-        const doubledCards = [...cardTypes, ...cardTypes].map((type, index) => ({ id: index, type: type }))
-            .sort(() => Math.random() - 0.5);
-        setCards(doubledCards);
+        handleStopSpeak();
+        const { cards: cardTypes, matchSize } = levelConfig;
+        let deck = [];
+        for (let i = 0; i < matchSize; i++) { deck = [...deck, ...cardTypes]; }
+        const shuffledDeck = deck.map((type, index) => ({ id: index, type: type })).sort(() => Math.random() - 0.5);
+        setCards(shuffledDeck);
         setFlippedCards([]);
         setMatchedPairs([]);
         setMoves(0);
         setGameState('playing');
-        setHighlightedIndex(-1);
-    }, [isHardMode]);
+        setIsGameWon(false);
+    }, [levelConfig, handleStopSpeak]);
 
-    useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
+    const selectLevel = (level) => {
+        setTtsManuallyStopped(false);
+        setCurrentLevel(level);
+        if (isStoryMode) {
+            setGameState('story');
+        } else {
+            shuffleAndDeal();
         }
-        shuffleAndDeal();
-    }, [isHardMode, shuffleAndDeal]);
+    };
 
     const userInteraction = () => {
         if (!hasInteracted.current) {
@@ -181,110 +247,113 @@ export default function App() {
     const handleCardClick = useCallback((clickedCard) => {
         userInteraction();
         const isAlreadyFlipped = flippedCards.some(c => c.id === clickedCard.id);
-        if (flippedCards.length === 2 || gameState === 'won' || isAlreadyFlipped || matchedPairs.includes(clickedCard.type)) return;
+        if (flippedCards.length === levelConfig.matchSize || isGameWon || isAlreadyFlipped || matchedPairs.includes(clickedCard.type)) return;
 
-        if (isGuideMode) speak(clickedCard.type);
-        playSound(ALL_CARD_DATA.indexOf(clickedCard.type));
+        if (isGuideMode) speak(clickedCard.type, () => {});
+        playSound(ALL_CARD_TYPES.indexOf(clickedCard.type));
         const newFlippedCards = [...flippedCards, clickedCard];
         setFlippedCards(newFlippedCards);
 
-        if (newFlippedCards.length === 2) {
+        if (newFlippedCards.length === levelConfig.matchSize) {
             setMoves(m => m + 1);
-            const [firstCard, secondCard] = newFlippedCards;
-            if (firstCard.type === secondCard.type) {
-                setMatchedPairs(prev => {
-                    const newMatched = [...prev, firstCard.type];
-                    const pairsToWin = isHardMode ? HARD_CARD_TYPES.length : NORMAL_CARD_TYPES.length;
-                    if (newMatched.length === pairsToWin) {
-                        setGameState('won');
-                        playSpecialSound('win');
-                        if (isGuideMode) speak(`You win! You matched all the cards in ${moves + 1} moves.`);
-                    }
-                    return newMatched;
-                });
+            const allMatch = newFlippedCards.every(card => card.type === newFlippedCards[0].type);
+            
+            if (allMatch) {
+                setMatchedPairs(prev => [...prev, newFlippedCards[0].type]);
                 setFlippedCards([]);
                 playSpecialSound('match');
-                if (isGuideMode) speak("Correct match!");
-                if (deafAssist) {
-                    setShowCorrectPopup(true);
-                    setTimeout(() => setShowCorrectPopup(false), 1200);
-                }
+                setShowFact({ name: newFlippedCards[0].type, icon: KERALA_DATA[newFlippedCards[0].type].icon, text: KERALA_DATA[newFlippedCards[0].type].fact });
+                if (isGuideMode) speak("Correct match!", () => {});
             } else {
                 setTimeout(() => setFlippedCards([]), 1500);
             }
         }
-    }, [flippedCards, gameState, isGuideMode, deafAssist, matchedPairs, moves, isHardMode]);
-    
-    const handleKeyDown = useCallback((e) => {
-        if (e.code !== 'Space' || gameState !== 'playing') return;
-        e.preventDefault(); userInteraction();
-        if (!isHoldingRef.current) {
-            isHoldingRef.current = true;
-            holdTimeoutRef.current = setTimeout(() => {
-                if (highlightedIndex !== -1) {
-                    const cardToSelect = cards[highlightedIndex];
-                    if (cardToSelect && !matchedPairs.includes(cardToSelect.type) && !flippedCards.some(c => c.id === cardToSelect.id)) {
-                        handleCardClick(cardToSelect);
-                    }
-                }
-                isHoldingRef.current = false;
-            }, 500);
-        }
-    }, [highlightedIndex, cards, matchedPairs, flippedCards, gameState, handleCardClick]);
+    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, moves, levelConfig]);
 
-    const handleKeyUp = useCallback((e) => {
-        if (e.code !== 'Space' || gameState !== 'playing') return;
-        e.preventDefault();
-        clearTimeout(holdTimeoutRef.current);
-        if (isHoldingRef.current) {
-            isHoldingRef.current = false;
-            setHighlightedIndex(prev => {
-                if (cards.length === 0) return -1;
-                let nextIndex = (prev < 0 ? 0 : prev + 1) % cards.length;
-                let attempts = 0;
-                while (matchedPairs.includes(cards[nextIndex]?.type) && attempts < cards.length) {
-                    nextIndex = (nextIndex + 1) % cards.length;
-                    attempts++;
-                }
-                if (isGuideMode) speak(cards[nextIndex]?.type);
-                return nextIndex;
-            });
-        }
-    }, [cards, matchedPairs, gameState, isGuideMode]);
-    
     useEffect(() => {
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-            clearTimeout(holdTimeoutRef.current);
-        };
-    }, [handleKeyDown, handleKeyUp]);
+        if (matchedPairs.length > 0 && matchedPairs.length === levelConfig.cards.length) {
+            setIsGameWon(true); 
+            playSpecialSound('win');
+            if (isGuideMode) speak(`You completed the level in ${moves} moves.`, () => {});
+            if (currentLevel === unlockedLevel) {
+                const newUnlockedLevel = unlockedLevel + 1;
+                setUnlockedLevel(newUnlockedLevel);
+                localStorage.setItem('unlockedLevel', newUnlockedLevel);
+            }
+        }
+    }, [matchedPairs, levelConfig, isGuideMode, moves, currentLevel, unlockedLevel]);
 
-    const toggleMute = () => {
-        userInteraction();
-        setIsMuted(current => {
-            const newMutedState = !current;
-            if (newMutedState) bgmPlayer.stop();
-            else if (bgmPlayer.state !== 'started') bgmPlayer.start();
-            return newMutedState;
-        });
+    const handleContinueFromFact = () => {
+        // Don't change the manual stop state here, just stop current speech
+        stopSpeaking(); 
+        setIsSpeaking(false);
+        setShowFact(null);
+        if(isGameWon) {
+            setGameState('won');
+        }
     };
+
+    const toggleMute = () => { userInteraction(); setIsMuted(current => { const newState = !current; if (newState) bgmPlayer.stop(); else if (bgmPlayer.state !== 'started') bgmPlayer.start(); return newState; }); };
     
-    const themeClasses = isHighContrast ? 'bg-black text-white' : 'bg-stone-800 text-yellow-100';
+    // --- TTS Navigation Logic ---
+    const focusableElements = {
+        cover: ['Level 1', 'Level 2', 'Level 3'],
+        playing: [...cards.map((c, i) => `Card ${i + 1}, ${c.type}`), 'Back to Levels', 'Toggle Music', 'Restart Level', 'Settings'],
+        won: ['Change Level', 'Next Level'],
+        story: ['Start Level', 'Read Aloud'],
+        fact: ['Continue', 'Read Aloud']
+    };
+
+    const handleTTSNavigation = useCallback((e) => {
+        if (!isGuideMode || e.code !== 'Space') return;
+        e.preventDefault();
+        
+        const currentFocusable = focusableElements[gameState] || [];
+        if(currentFocusable.length === 0) return;
+
+        const newIndex = (ttsFocusIndex + 1) % currentFocusable.length;
+        setTtsFocusIndex(newIndex);
+        speak(currentFocusable[newIndex], () => {});
+
+    }, [isGuideMode, gameState, ttsFocusIndex, cards]);
+
+    const handleTTSSelection = useCallback((e) => {
+        if(!isGuideMode || e.code !== 'Space') return;
+        e.preventDefault();
+        if(gameState === 'playing' && ttsFocusIndex < cards.length) {
+            handleCardClick(cards[ttsFocusIndex]);
+        }
+    }, [isGuideMode, gameState, ttsFocusIndex, cards, handleCardClick]);
+
+    useEffect(() => {
+        window.addEventListener('keyup', handleTTSNavigation);
+        return () => {
+            window.removeEventListener('keyup', handleTTSNavigation);
+        };
+    }, [handleTTSNavigation, handleTTSSelection]);
+
+
+    const themeClasses = isHighContrast ? 'bg-black text-white' : 'bg-green-900 text-green-100';
     const fontClass = useOpenDyslexic ? 'font-opendyslexic' : 'font-opensans';
 
     if (gameState === 'cover') {
         return (
             <>
                 <GlobalStyles />
-                <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-stone-900">
-                    <div className="bg-stone-800 bg-opacity-80 p-10 rounded-xl shadow-2xl text-center backdrop-blur-sm">
-                        <h1 className="text-6xl font-bold mb-4 text-yellow-300" style={{ fontFamily: 'serif' }}>Care Game</h1>
-                        <p className="text-yellow-100 text-xl mb-8">Test your memory with the symbols of ancient Egypt Good Luck.</p>
-                        <button onClick={shuffleAndDeal} className="px-12 py-4 bg-yellow-600 text-white font-bold text-2xl rounded-lg hover:bg-yellow-700 transition-transform transform hover:scale-105">Start Game</button>
+                <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-green-900">
+                    <div className="bg-green-800 bg-opacity-80 p-10 rounded-xl shadow-2xl text-center backdrop-blur-sm">
+                        <h1 className="text-6xl font-bold mb-4 text-white" style={{ fontFamily: 'serif' }}>Care Game</h1>
+                        <p className="text-green-100 text-xl mb-8">Select a level to begin your journey through Kerala.</p>
+                        <div className="flex justify-center space-x-4">
+                            {LEVEL_CONFIG.map(level => (
+                                <button key={level.level} onClick={() => selectLevel(level.level)} disabled={!godMode && level.level > unlockedLevel} className="px-8 py-4 bg-green-600 text-white font-bold text-xl rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                                    Level {level.level}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-6">For screen reader users: Use Spacebar to cycle through options and hold Spacebar to select.</p>
                     </div>
+                    <button onClick={() => setGodMode(true)} className="absolute bottom-4 left-4 text-yellow-600"><Star size={16}/></button>
                 </div>
             </>
         );
@@ -294,18 +363,44 @@ export default function App() {
         <>
             <GlobalStyles />
             <div className={`min-h-screen w-full flex flex-col items-center justify-center p-4 transition-colors duration-500 ${themeClasses} ${fontClass}`}>
+                <AnimatePresence>
+                    {gameState === 'story' && (
+                        <StoryModal 
+                            title={levelConfig.title} 
+                            story={levelConfig.story} 
+                            onStart={shuffleAndDeal}
+                            isSpeaking={isSpeaking}
+                            onAutoSpeak={handleAutoSpeak}
+                            onManualSpeak={handleManualSpeak}
+                            onStopSpeak={handleStopSpeak}
+                        />
+                    )}
+                    {showFact && (
+                        <FactModal 
+                            fact={showFact} 
+                            onContinue={handleContinueFromFact}
+                            isSpeaking={isSpeaking}
+                            onAutoSpeak={handleAutoSpeak}
+                            onManualSpeak={handleManualSpeak}
+                            onStopSpeak={handleStopSpeak}
+                        />
+                    )}
+                </AnimatePresence>
+
                 <div className="absolute top-4 right-4 flex items-center space-x-2 z-30">
-                    <button onClick={toggleMute} className="p-2 rounded-full bg-yellow-600 text-white hover:bg-yellow-700" aria-label="Toggle Music">{isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}</button>
-                    <button onClick={shuffleAndDeal} className="p-2 rounded-full bg-yellow-600 text-white hover:bg-yellow-700" aria-label="New Game"><RefreshCw size={24} /></button>
-                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-2 rounded-full bg-yellow-600 text-white hover:bg-yellow-700" aria-label="Settings"><Settings size={24} /></button>
+                    <button onClick={() => { handleStopSpeak(); setGameState('cover'); }} className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700" aria-label="Back to Levels"><ArrowLeft size={24} /></button>
+                    <button onClick={toggleMute} className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700" aria-label="Toggle Music">{isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}</button>
+                    <button onClick={shuffleAndDeal} className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700" aria-label="Restart Level"><RefreshCw size={24} /></button>
+                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700" aria-label="Settings"><Settings size={24} /></button>
                 </div>
                 <AnimatePresence>
                     {isSettingsOpen && (
-                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`absolute top-16 right-4 p-4 rounded-lg shadow-2xl z-30 ${isHighContrast ? 'bg-gray-800' : 'bg-yellow-800'} border-2`}>
+                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`absolute top-16 right-4 p-4 rounded-lg shadow-2xl z-30 ${isHighContrast ? 'bg-gray-800' : 'bg-green-800'} border-2`}>
                             <h3 className="text-lg font-bold mb-3">Game & Accessibility</h3>
                             <div className="space-y-3">
-                                <Toggle label="Hard Mode" isEnabled={isHardMode} onToggle={() => setIsHardMode(!isHardMode)} />
-                                <hr className="border-yellow-600"/>
+                                <Toggle label="Story Mode" isEnabled={isStoryMode} onToggle={() => setIsStoryMode(!isStoryMode)} />
+                                <Toggle label="Simple Mode" isEnabled={isSimpleMode} onToggle={() => setIsSimpleMode(!isSimpleMode)} />
+                                <hr className="border-green-600"/>
                                 <Toggle label="Blind Assist" isEnabled={blindAssist} onToggle={() => setBlindAssist(!blindAssist)} />
                                 <Toggle label="Deaf Assist" isEnabled={deafAssist} onToggle={() => setDeafAssist(!deafAssist)} />
                                 <Toggle label="Dyslexia Assist" isEnabled={dyslexiaAssist} onToggle={() => setDyslexiaAssist(!dyslexiaAssist)} />
@@ -314,22 +409,27 @@ export default function App() {
                     )}
                 </AnimatePresence>
                 <h1 className="text-4xl md:text-5xl font-bold mb-1 text-center" style={{ fontFamily: 'serif' }}>Care Game</h1>
-                <p className="mb-4 text-lg">Moves: {moves}</p>
-                <div className={`grid ${isHardMode ? 'grid-cols-5' : 'grid-cols-4'} gap-2 md:gap-4 w-full ${isHardMode ? 'max-w-xl' : 'max-w-lg'} ${isHardMode ? 'aspect-[5/4]' : 'aspect-square'}`}>
-                    {cards.map((card) => <Card key={card.id} card={card} onCardClick={handleCardClick} isFlipped={flippedCards.some(c => c.id === card.id)} isMatched={matchedPairs.includes(card.type)} isHighlighted={cards[highlightedIndex]?.id === card.id} isHighContrast={isHighContrast} isHardMode={isHardMode} />)}
+                <p className="mb-4 text-lg">Level {currentLevel} | Moves: {moves}</p>
+                <div className={`grid ${levelConfig.grid} gap-2 md:gap-3 w-full`}>
+                    {cards.map((card, index) => <Card key={card.id} card={card} onCardClick={handleCardClick} isFlipped={flippedCards.some(c => c.id === card.id)} isMatched={matchedPairs.includes(card.type)} isHighlighted={index === ttsFocusIndex && isGuideMode} isHighContrast={isHighContrast} isSimpleMode={isSimpleMode} />)}
                 </div>
-                <div className="mt-4 text-center h-10"><p className="text-sm"><span className="font-bold">Controls:</span> Click to flip. Or, use <span className="font-mono p-1 bg-gray-700 rounded">Spacebar</span> to cycle, and hold to select.</p></div>
+                
                 <AnimatePresence>
-                    {showCorrectPopup && <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="absolute bottom-10 px-6 py-3 bg-green-500 text-white text-2xl font-bold rounded-lg shadow-xl z-20">Correct!</motion.div>}
+                    {deafAssist && showFact && (
+                         <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} className="absolute inset-0 flex items-center justify-center z-20 bg-black bg-opacity-50">
+                            <div className="px-12 py-8 bg-green-500 text-white text-5xl font-bold rounded-lg shadow-xl">Correct!</div>
+                         </motion.div>
+                    )}
                     {gameState === 'won' && (
-                        <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-10">
-                            <div className={`p-8 rounded-xl text-center shadow-2xl ${isHighContrast ? 'bg-gray-900' : 'bg-yellow-800'} border-4`}>
-                                <Award className="w-24 h-24 mx-auto mb-4 text-yellow-400" />
-                                <h2 className="text-4xl font-bold mb-2">You Win!</h2>
-                                <p className="text-xl mb-6">Congratulations, you matched all the cards in {moves} moves.</p>
-                                <button onClick={shuffleAndDeal} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">Play Again</button>
-                            </div>
-                        </motion.div>
+                        <LevelEndModal 
+                            story={levelConfig.endStory}
+                            onNext={currentLevel < LEVEL_CONFIG.length ? () => { handleStopSpeak(); selectLevel(currentLevel + 1); } : null}
+                            onEnd={() => { handleStopSpeak(); setGameState('cover'); }}
+                            isSpeaking={isSpeaking}
+                            onAutoSpeak={handleAutoSpeak}
+                            onManualSpeak={handleManualSpeak}
+                            onStopSpeak={handleStopSpeak}
+                        />
                     )}
                 </AnimatePresence>
             </div>
