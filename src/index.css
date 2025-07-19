@@ -1,0 +1,29 @@
+/* Import fonts */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans&family=OpenDyslexic:wght@400;700&display=swap');
+
+/* Apply Tailwind base styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS utilities for card flip */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden; /* Safari */
+  position: absolute; /* Required for stacking */
+  width: 100%;
+  height: 100%;
+}
+
+/* This class is applied to the front face of the card by Framer Motion */
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
