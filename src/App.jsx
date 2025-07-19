@@ -281,7 +281,7 @@ export default function App() {
                 <GlobalStyles />
                 <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-stone-900">
                     <div className="bg-stone-800 bg-opacity-80 p-10 rounded-xl shadow-2xl text-center backdrop-blur-sm">
-                        <h1 className="text-6xl font-bold mb-4 text-yellow-300" style={{ fontFamily: 'serif' }}>Egyptian Memory Match</h1>
+                        <h1 className="text-6xl font-bold mb-4 text-yellow-300" style={{ fontFamily: 'serif' }}>Care Game</h1>
                         <p className="text-yellow-100 text-xl mb-8">Test your memory with the symbols of ancient Egypt.</p>
                         <button onClick={shuffleAndDeal} className="px-12 py-4 bg-yellow-600 text-white font-bold text-2xl rounded-lg hover:bg-yellow-700 transition-transform transform hover:scale-105">Start Game</button>
                     </div>
@@ -313,7 +313,7 @@ export default function App() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-                <h1 className="text-4xl md:text-5xl font-bold mb-1 text-center" style={{ fontFamily: 'serif' }}>Egyptian Memory Match</h1>
+                <h1 className="text-4xl md:text-5xl font-bold mb-1 text-center" style={{ fontFamily: 'serif' }}>Care Game</h1>
                 <p className="mb-4 text-lg">Moves: {moves}</p>
                 <div className={`grid ${isHardMode ? 'grid-cols-5' : 'grid-cols-4'} gap-2 md:gap-4 w-full ${isHardMode ? 'max-w-xl' : 'max-w-lg'} ${isHardMode ? 'aspect-[5/4]' : 'aspect-square'}`}>
                     {cards.map((card) => <Card key={card.id} card={card} onCardClick={handleCardClick} isFlipped={flippedCards.some(c => c.id === card.id)} isMatched={matchedPairs.includes(card.type)} isHighlighted={cards[highlightedIndex]?.id === card.id} isHighContrast={isHighContrast} isHardMode={isHardMode} />)}
