@@ -281,7 +281,11 @@ export default function App() {
                 <GlobalStyles />
                 <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-stone-900">
                     <div className="bg-stone-800 bg-opacity-80 p-10 rounded-xl shadow-2xl text-center backdrop-blur-sm">
+<<<<<<< HEAD
                         <h1 className="text-6xl font-bold mb-4 text-yellow-300" style={{ fontFamily: 'serif' }}>Care Game</h1>
+=======
+                        <h1 className="text-6xl font-bold mb-4 text-yellow-300" style={{ fontFamily: 'serif' }}>Egyptian Memory Match</h1>
+>>>>>>> cfc729bd626df7862a1762b6007e0dfe28269b2c
                         <p className="text-yellow-100 text-xl mb-8">Test your memory with the symbols of ancient Egypt.</p>
                         <button onClick={shuffleAndDeal} className="px-12 py-4 bg-yellow-600 text-white font-bold text-2xl rounded-lg hover:bg-yellow-700 transition-transform transform hover:scale-105">Start Game</button>
                     </div>
