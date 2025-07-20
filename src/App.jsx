@@ -198,7 +198,6 @@ export default function App() {
     const [moves, setMoves] = useState(0);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [blindAssist, setBlindAssist] = useState(false);
-    const [deafAssist, setDeafAssist] = useState(false);
     const [dyslexiaAssist, setDyslexiaAssist] = useState(false);
     const [oneButtonMode, setOneButtonMode] = useState(true); // Default to ON
     const [isStoryMode, setIsStoryMode] = useState(true);
@@ -213,30 +212,20 @@ export default function App() {
     // One-button navigation state
     const [focusContext, setFocusContext] = useState('menu'); // 'menu', 'game', 'modal', 'settings', 'top-bar'
     const [focusIndex, setFocusIndex] = useState(0);
+    
+    // Refs
     const pressTimer = useRef(null);
     const keyPressStart = useRef(null);
-
     const hasInteracted = useRef(false);
-    const levelConfig = LEVEL_CONFIG[currentLevel - 1];
     const bgmPlayer = useRef(null);
+    
     const [isMusicLoaded, setIsMusicLoaded] = useState(false);
 
+    const levelConfig = LEVEL_CONFIG[currentLevel - 1];
     const isHighContrast = blindAssist;
     const isGuideMode = blindAssist;
 
-    // --- TEXT-TO-SPEECH FUNCTIONS (Now inside the component) ---
-    useEffect(() => {
-        const loadVoices = () => {
-            const voices = window.speechSynthesis.getVoices();
-            const foundVoice = voices.find(v => v.lang === 'en-IN');
-            if (foundVoice) {
-                setIndianVoice(foundVoice);
-            }
-        };
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-        loadVoices();
-        return () => { window.speechSynthesis.onvoiceschanged = null; };
-    }, []);
+    // --- FUNCTION DEFINITIONS ---
 
     const speak = useCallback((text, onEndCallback) => {
         if ('speechSynthesis' in window) {
@@ -259,138 +248,6 @@ export default function App() {
         }
     }, []);
 
-    // Single button navigation handler
-    useEffect(() => {
-        if (!oneButtonMode) return;
-
-        const getFocusCount = () => {
-             switch (focusContext) {
-                 case 'menu': return LEVEL_CONFIG.filter(l => godMode || l.level <= unlockedLevel).length;
-                 case 'game': return cards.length;
-                 case 'modal':
-                     if (showFact) return 2;
-                     if (gameState === 'story') return 2;
-                     if (gameState === 'won') return (levelConfig.endStory && currentLevel < LEVEL_CONFIG.length) ? 3 : 2;
-                     return 0;
-                 case 'settings': return 6; 
-                 case 'top-bar': return 4;
-                 default: return 0;
-             }
-        };
-
-        const handleKeyDown = (e) => {
-            if (e.repeat) return;
-            const key = e.code;
-
-            if (key === 'Space' || key === 'Escape') {
-                 e.preventDefault();
-                 if (keyPressStart.current) return; 
-                 keyPressStart.current = { key: key, time: Date.now() };
-
-                 pressTimer.current = setTimeout(() => {
-                     // --- PRESS & HOLD ACTION ---
-                     if (!keyPressStart.current || keyPressStart.current.key !== key) return;
-
-                     if (key === 'Space') {
-                         const focusCount = getFocusCount();
-                         if (focusCount === 0) return;
-                         
-                         let element;
-                         switch (focusContext) {
-                             case 'menu':
-                                 element = document.getElementById(`level-btn-${focusIndex}`);
-                                 break;
-                             case 'game':
-                                 if(cards[focusIndex]) {
-                                     handleCardClick(cards[focusIndex]);
-                                 }
-                                 break;
-                             case 'modal':
-                                 element = document.getElementById(`modal-btn-${focusIndex}`);
-                                 break;
-                             case 'settings':
-                                 element = document.getElementById(`setting-toggle-${focusIndex}`);
-                                 if(element) element.querySelector('label')?.click();
-                                 break;
-                             case 'top-bar':
-                                 element = document.getElementById(`top-bar-btn-${focusIndex}`);
-                                 break;
-                         }
-                         if (element) element.click();
-                     } else if (key === 'Escape') {
-                         // Long press escape
-                         stopSpeaking();
-                         setGameState('cover');
-                     }
-                     
-                     keyPressStart.current = null; 
-                 }, 500);
-            }
-        };
-
-        const handleKeyUp = (e) => {
-            const key = e.code;
-            if (key !== 'Space' && key !== 'Escape') return;
-            e.preventDefault();
-
-            clearTimeout(pressTimer.current);
-            if (keyPressStart.current && keyPressStart.current.key === key && (Date.now() - keyPressStart.current.time < 500)) {
-                // --- SINGLE TAP ACTION ---
-                if (key === 'Space') {
-                    setFocusIndex(prev => (prev + 1) % (getFocusCount() || 1));
-                } else if (key === 'Escape') {
-                    if (isSettingsOpen) {
-                        setIsSettingsOpen(false);
-                    } else {
-                        setFocusContext(prev => prev === 'game' ? 'top-bar' : 'game');
-                        setFocusIndex(0);
-                    }
-                }
-            }
-            keyPressStart.current = null;
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-            clearTimeout(pressTimer.current);
-        };
-    }, [oneButtonMode, focusContext, focusIndex, cards, gameState, isSettingsOpen, unlockedLevel, godMode, stopSpeaking]);
-
-
-    // Update focus context based on game state
-    useEffect(() => {
-        if (isSettingsOpen) setFocusContext('settings');
-        else if (showFact || gameState === 'story' || gameState === 'won') setFocusContext('modal');
-        else if (gameState === 'playing') setFocusContext('game');
-        else if (gameState === 'cover') setFocusContext('menu');
-        else setFocusContext('');
-        setFocusIndex(0);
-    }, [gameState, showFact, isSettingsOpen]);
-
-
-    useEffect(() => {
-        bgmPlayer.current = new Tone.Player({
-            url: bgmAudio,
-            loop: true,
-            autostart: false,
-            volume: -12,
-            onload: () => setIsMusicLoaded(true),
-        }).toDestination();
-         return () => {
-            bgmPlayer.current?.dispose();
-        };
-    }, []);
-
-    useEffect(() => {
-        const savedLevel = localStorage.getItem('unlockedLevel');
-        if (savedLevel) {
-            setUnlockedLevel(parseInt(savedLevel, 10));
-        }
-    }, []);
-
     const handleAutoSpeak = useCallback((text) => {
         if (ttsManuallyStopped) return;
         speak(text, () => setIsSpeaking(false));
@@ -409,31 +266,7 @@ export default function App() {
         setTtsManuallyStopped(true);
     }, [stopSpeaking]);
 
-    const shuffleAndDeal = useCallback(() => {
-        handleStopSpeak();
-        const { cards: cardTypes, matchSize } = levelConfig;
-        let deck = [];
-        for (let i = 0; i < matchSize; i++) { deck = [...deck, ...cardTypes]; }
-        const shuffledDeck = deck.map((type, index) => ({ id: index, type: type })).sort(() => Math.random() - 0.5);
-        setCards(shuffledDeck);
-        setFlippedCards([]);
-        setMatchedPairs([]);
-        setMoves(0);
-        setGameState('playing');
-        setIsGameWon(false);
-    }, [levelConfig, handleStopSpeak]);
-
-    const selectLevel = (level) => {
-        setTtsManuallyStopped(false);
-        setCurrentLevel(level);
-        if (isStoryMode) {
-            setGameState('story');
-        } else {
-            shuffleAndDeal();
-        }
-    };
-
-    const userInteraction = () => {
+    const userInteraction = useCallback(() => {
         if (!hasInteracted.current) {
             hasInteracted.current = true;
             if (Tone.context.state !== 'running') Tone.context.resume();
@@ -441,8 +274,8 @@ export default function App() {
                 bgmPlayer.current.start();
             }
         }
-    };
-
+    }, [isMuted, isMusicLoaded]);
+    
     const handleCardClick = useCallback((clickedCard) => {
         userInteraction();
         const isAlreadyFlipped = flippedCards.some(c => c.id === clickedCard.id);
@@ -469,7 +302,163 @@ export default function App() {
                 setTimeout(() => setFlippedCards([]), 1500);
             }
         }
-    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, levelConfig, showFact, speak]);
+    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, levelConfig, showFact, speak, userInteraction]);
+
+    const shuffleAndDeal = useCallback(() => {
+        handleStopSpeak();
+        const { cards: cardTypes, matchSize } = levelConfig;
+        let deck = [];
+        for (let i = 0; i < matchSize; i++) { deck = [...deck, ...cardTypes]; }
+        const shuffledDeck = deck.map((type, index) => ({ id: index, type: type })).sort(() => Math.random() - 0.5);
+        setCards(shuffledDeck);
+        setFlippedCards([]);
+        setMatchedPairs([]);
+        setMoves(0);
+        setGameState('playing');
+        setIsGameWon(false);
+    }, [levelConfig, handleStopSpeak]);
+
+
+    // --- EFFECT HOOKS ---
+
+    useEffect(() => {
+        const loadVoices = () => {
+            const voices = window.speechSynthesis.getVoices();
+            const foundVoice = voices.find(v => v.lang === 'en-IN');
+            if (foundVoice) {
+                setIndianVoice(foundVoice);
+            }
+        };
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+        return () => { window.speechSynthesis.onvoiceschanged = null; };
+    }, []);
+    
+    // Single button navigation handler
+    useEffect(() => {
+        if (!oneButtonMode) return;
+
+        const getFocusCount = () => {
+             switch (focusContext) {
+                 case 'menu': return LEVEL_CONFIG.filter(l => godMode || l.level <= unlockedLevel).length;
+                 case 'game': return cards.length;
+                 case 'modal':
+                     if (showFact) return 2;
+                     if (gameState === 'story') return 2;
+                     if (gameState === 'won') return (levelConfig.endStory && currentLevel < LEVEL_CONFIG.length) ? 3 : 2;
+                     return 0;
+                 case 'settings': return 4; // Story, Simple, Blind, Dyslexia
+                 case 'top-bar': return 4;
+                 default: return 0;
+             }
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.repeat) return;
+            const key = e.code;
+
+            if (key === 'Space' || key === 'Escape') {
+                e.preventDefault();
+                if (keyPressStart.current) return; 
+                keyPressStart.current = { key: key, time: Date.now() };
+
+                pressTimer.current = setTimeout(() => {
+                    if (!keyPressStart.current || keyPressStart.current.key !== key) return;
+
+                    if (key === 'Space') {
+                        const focusCount = getFocusCount();
+                        if (focusCount === 0) return;
+                        
+                        let element;
+                        switch (focusContext) {
+                            case 'menu':
+                                element = document.getElementById(`level-btn-${focusIndex}`);
+                                break;
+                            case 'game':
+                                if(cards[focusIndex]) {
+                                    handleCardClick(cards[focusIndex]);
+                                }
+                                break;
+                            case 'modal':
+                                element = document.getElementById(`modal-btn-${focusIndex}`);
+                                break;
+                            case 'settings':
+                                element = document.getElementById(`setting-toggle-${focusIndex}`);
+                                if(element) element.querySelector('label')?.click();
+                                break;
+                            case 'top-bar':
+                                element = document.getElementById(`top-bar-btn-${focusIndex}`);
+                                break;
+                        }
+                        if (element) element.click();
+                    } else if (key === 'Escape') {
+                        stopSpeaking();
+                        setGameState('cover');
+                    }
+                    
+                    keyPressStart.current = null; 
+                }, 500);
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            const key = e.code;
+            if (key !== 'Space' && key !== 'Escape') return;
+            e.preventDefault();
+
+            clearTimeout(pressTimer.current);
+            if (keyPressStart.current && keyPressStart.current.key === key && (Date.now() - keyPressStart.current.time < 500)) {
+                if (key === 'Space') {
+                    setFocusIndex(prev => (prev + 1) % (getFocusCount() || 1));
+                } else if (key === 'Escape') {
+                    if (isSettingsOpen) {
+                        setIsSettingsOpen(false);
+                    } else {
+                        setFocusContext(prev => prev === 'game' ? 'top-bar' : 'game');
+                        setFocusIndex(0);
+                    }
+                }
+            }
+            keyPressStart.current = null;
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            clearTimeout(pressTimer.current);
+        };
+    }, [oneButtonMode, focusContext, focusIndex, cards, gameState, isSettingsOpen, unlockedLevel, godMode, stopSpeaking, handleCardClick]);
+
+    useEffect(() => {
+        if (isSettingsOpen) setFocusContext('settings');
+        else if (showFact || gameState === 'story' || gameState === 'won') setFocusContext('modal');
+        else if (gameState === 'playing') setFocusContext('game');
+        else if (gameState === 'cover') setFocusContext('menu');
+        else setFocusContext('');
+        setFocusIndex(0);
+    }, [gameState, showFact, isSettingsOpen]);
+
+    useEffect(() => {
+        bgmPlayer.current = new Tone.Player({
+            url: bgmAudio,
+            loop: true,
+            autostart: false,
+            volume: -12,
+            onload: () => setIsMusicLoaded(true),
+        }).toDestination();
+         return () => {
+            bgmPlayer.current?.dispose();
+        };
+    }, []);
+
+    useEffect(() => {
+        const savedLevel = localStorage.getItem('unlockedLevel');
+        if (savedLevel) {
+            setUnlockedLevel(parseInt(savedLevel, 10));
+        }
+    }, []);
 
     useEffect(() => {
         if (matchedPairs.length > 0 && matchedPairs.length === levelConfig.cards.length) {
@@ -483,6 +472,18 @@ export default function App() {
             }
         }
     }, [matchedPairs, levelConfig, isGuideMode, moves, currentLevel, unlockedLevel, speak]);
+
+    // --- RENDER LOGIC ---
+
+    const selectLevel = (level) => {
+        setTtsManuallyStopped(false);
+        setCurrentLevel(level);
+        if (isStoryMode) {
+            setGameState('story');
+        } else {
+            shuffleAndDeal();
+        }
+    };
 
     const handleContinueFromFact = () => {
         handleStopSpeak();
@@ -597,8 +598,7 @@ export default function App() {
                                 <div id="setting-toggle-1"><Toggle label="Simple Mode" isEnabled={isSimpleMode} onToggle={() => setIsSimpleMode(!isSimpleMode)} isHighlighted={focusContext === 'settings' && focusIndex === 1}/></div>
                                 <hr className="border-green-600 my-2"/>
                                 <div id="setting-toggle-2"><Toggle label="Blind Assist" isEnabled={blindAssist} onToggle={() => setBlindAssist(!blindAssist)} isHighlighted={focusContext === 'settings' && focusIndex === 2}/></div>
-                                <div id="setting-toggle-3"><Toggle label="Deaf Assist" isEnabled={deafAssist} onToggle={() => setDeafAssist(!deafAssist)} isHighlighted={focusContext === 'settings' && focusIndex === 3}/></div>
-                                <div id="setting-toggle-4"><Toggle label="Dyslexia Assist" isEnabled={dyslexiaAssist} onToggle={() => setDyslexiaAssist(!dyslexiaAssist)} isHighlighted={focusContext === 'settings' && focusIndex === 4}/></div>
+                                <div id="setting-toggle-3"><Toggle label="Dyslexia Assist" isEnabled={dyslexiaAssist} onToggle={() => setDyslexiaAssist(!dyslexiaAssist)} isHighlighted={focusContext === 'settings' && focusIndex === 3}/></div>
                             </div>
                         </motion.div>
                     )}
@@ -610,11 +610,6 @@ export default function App() {
                 </div>
                 
                 <AnimatePresence>
-                    {deafAssist && showFact && (
-                        <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} className="absolute inset-0 flex items-center justify-center z-20 bg-black bg-opacity-50">
-                            <div className="px-12 py-8 bg-green-500 text-white text-5xl font-bold rounded-lg shadow-xl">Correct!</div>
-                        </motion.div>
-                    )}
                     {gameState === 'won' && (
                         <LevelEndModal 
                             story={levelConfig.endStory}
