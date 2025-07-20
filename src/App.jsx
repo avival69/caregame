@@ -12,13 +12,13 @@ const GlobalStyles = () => {
             @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap");
             @font-face {
               font-family: 'OpenDyslexic';
-              src: url('public/fonts/OpenDyslexic-Regular.otf') format('opentype');
+              src: url('/fonts/OpenDyslexic-Regular.otf') format('opentype');
               font-weight: normal;
               font-style: normal;
             }
             @font-face {
               font-family: 'OpenDyslexic';
-              src: url('public/fonts/OpenDyslexic/OpenDyslexic-Bold.otf') format('opentype');
+              src: url('/fonts/OpenDyslexic/OpenDyslexic-Bold.otf') format('opentype');
               font-weight: bold;
               font-style: normal;
             }
