@@ -10,9 +10,10 @@ const GlobalStyles = () => {
         const style = document.createElement('style');
         style.textContent = `
             @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap");
+            
             @font-face {
               font-family: 'OpenDyslexic';
-              src: url('/fonts/OpenDyslexic-Regular.otf') format('opentype');
+              src: url('/fonts/OpenDyslexic/OpenDyslexic-Regular.otf') format('opentype');
               font-weight: normal;
               font-style: normal;
             }
@@ -22,6 +23,7 @@ const GlobalStyles = () => {
               font-weight: bold;
               font-style: normal;
             }
+            
             body {
               margin: 0;
               font-family: 'Open Sans', sans-serif;
@@ -178,7 +180,7 @@ const LevelEndModal = ({ story, onNext, onEnd, isSpeaking, onAutoSpeak, onManual
 
 // --- TOGGLE COMPONENT FOR SETTINGS ---
 const Toggle = ({ label, isEnabled, onToggle, isHighlighted }) => (
-    <label className={`flex items-center justify-between space-x-4 cursor-pointer p-2 rounded-md ${isHighlighted ? 'ring-4 ring-teal-400' : ''}`} onClick={onToggle}>
+    <label className={`flex items-center justify-between space-x-4 cursor-pointer p-2 rounded-md ${isHighlighted ? 'ring-4 ring-teal-400' : ''}`} onClick={(e) => { e.preventDefault(); onToggle(); }}>
         <span>{label}</span>
         <div className={`w-12 h-6 rounded-full p-1 flex items-center transition-colors ${isEnabled ? 'bg-green-500 justify-end' : 'bg-gray-500 justify-start'}`}>
             <motion.div layout className="w-4 h-4 bg-white rounded-full" />
@@ -235,8 +237,12 @@ export default function App() {
             if (indianVoice) {
                 utterance.voice = indianVoice;
             }
-            utterance.onend = onEndCallback;
+            utterance.onend = () => {
+                setIsSpeaking(false);
+                if (onEndCallback) onEndCallback();
+            };
             window.speechSynthesis.speak(utterance);
+            setIsSpeaking(true);
         } else if (onEndCallback) {
             onEndCallback();
         }
@@ -246,23 +252,21 @@ export default function App() {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
         }
+        setIsSpeaking(false);
     }, []);
 
     const handleAutoSpeak = useCallback((text) => {
         if (ttsManuallyStopped) return;
-        speak(text, () => setIsSpeaking(false));
-        setIsSpeaking(true);
+        speak(text);
     }, [ttsManuallyStopped, speak]);
 
     const handleManualSpeak = useCallback((text) => {
         setTtsManuallyStopped(false);
-        speak(text, () => setIsSpeaking(false));
-        setIsSpeaking(true);
+        speak(text);
     }, [speak]);
 
     const handleStopSpeak = useCallback(() => {
         stopSpeaking();
-        setIsSpeaking(false);
         setTtsManuallyStopped(true);
     }, [stopSpeaking]);
 
@@ -281,7 +285,7 @@ export default function App() {
         const isAlreadyFlipped = flippedCards.some(c => c.id === clickedCard.id);
         if (showFact || flippedCards.length === levelConfig.matchSize || isGameWon || isAlreadyFlipped || matchedPairs.includes(clickedCard.type)) return;
 
-        if (isGuideMode) speak(clickedCard.type, () => {});
+        if (isGuideMode) speak(clickedCard.type);
         playSound(ALL_CARD_TYPES.indexOf(clickedCard.type));
         const newFlippedCards = [...flippedCards, clickedCard];
         setFlippedCards(newFlippedCards);
@@ -296,7 +300,7 @@ export default function App() {
                     setFlippedCards([]);
                     playSpecialSound('match');
                     setShowFact({ name: newFlippedCards[0].type, icon: KERALA_DATA[newFlippedCards[0].type].icon, text: KERALA_DATA[newFlippedCards[0].type].fact });
-                    if (isGuideMode) speak("Correct match!", () => {});
+                    if (isGuideMode) speak("Correct match!");
                 }, 500);
             } else {
                 setTimeout(() => setFlippedCards([]), 1500);
@@ -347,7 +351,7 @@ export default function App() {
                      if (gameState === 'story') return 2;
                      if (gameState === 'won') return (levelConfig.endStory && currentLevel < LEVEL_CONFIG.length) ? 3 : 2;
                      return 0;
-                 case 'settings': return 4; // Story, Simple, Blind, Dyslexia
+                 case 'settings': return 4;
                  case 'top-bar': return 4;
                  default: return 0;
              }
@@ -366,9 +370,6 @@ export default function App() {
                     if (!keyPressStart.current || keyPressStart.current.key !== key) return;
 
                     if (key === 'Space') {
-                        const focusCount = getFocusCount();
-                        if (focusCount === 0) return;
-                        
                         let element;
                         switch (focusContext) {
                             case 'menu':
@@ -394,6 +395,7 @@ export default function App() {
                     } else if (key === 'Escape') {
                         stopSpeaking();
                         setGameState('cover');
+                        setIsSettingsOpen(false);
                     }
                     
                     keyPressStart.current = null; 
@@ -413,7 +415,7 @@ export default function App() {
                 } else if (key === 'Escape') {
                     if (isSettingsOpen) {
                         setIsSettingsOpen(false);
-                    } else {
+                    } else if (gameState === 'playing' || gameState === 'won') {
                         setFocusContext(prev => prev === 'game' ? 'top-bar' : 'game');
                         setFocusIndex(0);
                     }
@@ -449,8 +451,8 @@ export default function App() {
             onload: () => setIsMusicLoaded(true),
         }).toDestination();
          return () => {
-            bgmPlayer.current?.dispose();
-        };
+             bgmPlayer.current?.dispose();
+         };
     }, []);
 
     useEffect(() => {
@@ -464,7 +466,7 @@ export default function App() {
         if (matchedPairs.length > 0 && matchedPairs.length === levelConfig.cards.length) {
             setIsGameWon(true); 
             playSpecialSound('win');
-            if (isGuideMode) speak(`You completed the level in ${moves} moves.`, () => {});
+            if (isGuideMode) speak(`You completed the level in ${moves} moves.`);
             if (currentLevel === unlockedLevel && currentLevel < LEVEL_CONFIG.length) {
                 const newUnlockedLevel = unlockedLevel + 1;
                 setUnlockedLevel(newUnlockedLevel);
@@ -524,7 +526,7 @@ export default function App() {
                                     key={level.level} 
                                     onClick={() => selectLevel(level.level)} 
                                     disabled={!godMode && level.level > unlockedLevel}
-                                    className={`px-8 py-4 bg-green-600 text-white font-bold text-xl rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed focus:ring-4 focus:ring-teal-400 ${focusContext === 'menu' && index === focusIndex ? 'ring-4 ring-teal-400' : ''}`}
+                                    className={`px-8 py-4 bg-green-600 text-white font-bold text-xl rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed focus:outline-none ${focusContext === 'menu' && index === focusIndex ? 'ring-4 ring-teal-400' : ''}`}
                                 >
                                     Level {level.level}
                                 </button>
@@ -545,7 +547,7 @@ export default function App() {
 
                          <p className="mt-4 text-sm text-teal-400">One Button Mode is ON</p>
                     </div>
-                    <button onClick={() => setGodMode(true)} className="absolute bottom-4 left-4 text-yellow-600"><Star size={16}/></button>
+                    <button onClick={() => setGodMode(true)} className="absolute bottom-4 left-4 text-yellow-600 opacity-50 hover:opacity-100"><Star size={16}/></button>
                 </div>
             </>
         );
@@ -584,10 +586,10 @@ export default function App() {
                 </AnimatePresence>
 
                 <div className="absolute top-4 right-4 flex items-center space-x-2 z-30">
-                    <button id="top-bar-btn-0" onClick={() => { handleStopSpeak(); setGameState('cover'); }} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 ${focusContext === 'top-bar' && focusIndex === 0 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Back to Levels"><ArrowLeft size={24} /></button>
-                    <button id="top-bar-btn-1" onClick={toggleMute} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 ${focusContext === 'top-bar' && focusIndex === 1 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Toggle Music">{isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}</button>
-                    <button id="top-bar-btn-2" onClick={shuffleAndDeal} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 ${focusContext === 'top-bar' && focusIndex === 2 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Restart Level"><RefreshCw size={24} /></button>
-                    <button id="top-bar-btn-3" onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 ${focusContext === 'top-bar' && focusIndex === 3 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Settings"><Settings size={24} /></button>
+                    <button id="top-bar-btn-0" onClick={() => { handleStopSpeak(); setGameState('cover'); }} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 focus:outline-none ${focusContext === 'top-bar' && focusIndex === 0 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Back to Levels"><ArrowLeft size={24} /></button>
+                    <button id="top-bar-btn-1" onClick={toggleMute} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 focus:outline-none ${focusContext === 'top-bar' && focusIndex === 1 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Toggle Music">{isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}</button>
+                    <button id="top-bar-btn-2" onClick={shuffleAndDeal} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 focus:outline-none ${focusContext === 'top-bar' && focusIndex === 2 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Restart Level"><RefreshCw size={24} /></button>
+                    <button id="top-bar-btn-3" onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2 rounded-full bg-green-600 text-white hover:bg-green-700 focus:outline-none ${focusContext === 'top-bar' && focusIndex === 3 ? 'ring-4 ring-teal-400' : ''}`} aria-label="Settings"><Settings size={24} /></button>
                 </div>
                 <AnimatePresence>
                     {isSettingsOpen && (
@@ -606,7 +608,7 @@ export default function App() {
                 <h1 className="text-4xl md:text-5xl font-bold mb-1 text-center" style={{ fontFamily: 'serif' }}>കഥ Cards</h1>
                 <p className="mb-4 text-lg">Level {currentLevel} | Moves: {moves}</p>
                 <div className={`grid ${levelConfig.grid} gap-2 md:gap-3 w-full`}>
-                    {cards.map((card, index) => <Card key={card.id} card={card} onCardClick={handleCardClick} isFlipped={flippedCards.some(c => c.id === card.id)} isMatched={matchedPairs.includes(card.type)} isHighlighted={(focusContext === 'game' && index === focusIndex) || (isGuideMode && index === focusIndex)} isHighContrast={isHighContrast} isSimpleMode={isSimpleMode} />)}
+                    {cards.map((card, index) => <Card key={card.id} card={card} onCardClick={handleCardClick} isFlipped={flippedCards.some(c => c.id === card.id)} isMatched={matchedPairs.includes(card.type)} isHighlighted={focusContext === 'game' && index === focusIndex} isHighContrast={isHighContrast} isSimpleMode={isSimpleMode} />)}
                 </div>
                 
                 <AnimatePresence>
