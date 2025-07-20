@@ -90,8 +90,6 @@ const cardSynths = ALL_CARD_TYPES.map(() => new Tone.Synth({ oscillator: { type:
 const specialSounds = { match: new Tone.Synth().toDestination(), mismatch: new Tone.Synth().toDestination(), win: new Tone.PolySynth(Tone.Synth).toDestination() };
 const playSound = (cardId) => { if (Tone.context.state !== 'running') Tone.context.resume(); const freq = 220 * Math.pow(2, ((cardId % cardSynths.length) * 2) / 12); cardSynths[cardId % cardSynths.length].triggerAttackRelease(freq, '8n'); };
 const playSpecialSound = (type) => { if (Tone.context.state !== 'running') Tone.context.resume(); const now = Tone.now(); if (type === 'match') { specialSounds.match.triggerAttackRelease('C4', '8n', now); specialSounds.match.triggerAttackRelease('G4', '8n', now + 0.2); } else if (type === 'mismatch') { specialSounds.mismatch.triggerAttackRelease('C3', '8n', now); } else if (type === 'win') { specialSounds.win.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '2n', now); } };
-const speak = (text, onEndCallback) => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.rate = 1.2; utterance.onend = onEndCallback; speechSynthesis.speak(utterance); } else { if(onEndCallback) onEndCallback(); } };
-const stopSpeaking = () => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); } };
 
 // --- CARD COMPONENT ---
 const Card = React.memo(({ card, onCardClick, isFlipped, isMatched, isHighlighted, isHighContrast, isSimpleMode }) => {
@@ -177,6 +175,7 @@ const LevelEndModal = ({ story, onNext, onEnd, isSpeaking, onAutoSpeak, onManual
     );
 };
 
+
 // --- TOGGLE COMPONENT FOR SETTINGS ---
 const Toggle = ({ label, isEnabled, onToggle, isHighlighted }) => (
     <label className={`flex items-center justify-between space-x-4 cursor-pointer p-2 rounded-md ${isHighlighted ? 'ring-4 ring-teal-400' : ''}`} onClick={onToggle}>
@@ -209,6 +208,7 @@ export default function App() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [ttsManuallyStopped, setTtsManuallyStopped] = useState(false);
     const [isGameWon, setIsGameWon] = useState(false);
+    const [indianVoice, setIndianVoice] = useState(null);
     
     // One-button navigation state
     const [focusContext, setFocusContext] = useState('menu'); // 'menu', 'game', 'modal', 'settings', 'top-bar'
@@ -224,6 +224,41 @@ export default function App() {
     const isHighContrast = blindAssist;
     const isGuideMode = blindAssist;
 
+    // --- TEXT-TO-SPEECH FUNCTIONS (Now inside the component) ---
+    useEffect(() => {
+        const loadVoices = () => {
+            const voices = window.speechSynthesis.getVoices();
+            const foundVoice = voices.find(v => v.lang === 'en-IN');
+            if (foundVoice) {
+                setIndianVoice(foundVoice);
+            }
+        };
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+        return () => { window.speechSynthesis.onvoiceschanged = null; };
+    }, []);
+
+    const speak = useCallback((text, onEndCallback) => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.2;
+            if (indianVoice) {
+                utterance.voice = indianVoice;
+            }
+            utterance.onend = onEndCallback;
+            window.speechSynthesis.speak(utterance);
+        } else if (onEndCallback) {
+            onEndCallback();
+        }
+    }, [indianVoice]);
+
+    const stopSpeaking = useCallback(() => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+    }, []);
+
     // Single button navigation handler
     useEffect(() => {
         if (!oneButtonMode) return;
@@ -237,7 +272,7 @@ export default function App() {
                      if (gameState === 'story') return 2;
                      if (gameState === 'won') return (levelConfig.endStory && currentLevel < LEVEL_CONFIG.length) ? 3 : 2;
                      return 0;
-                 case 'settings': return 6; // Now 6 toggles
+                 case 'settings': return 6; 
                  case 'top-bar': return 4;
                  default: return 0;
              }
@@ -249,7 +284,7 @@ export default function App() {
 
             if (key === 'Space' || key === 'Escape') {
                  e.preventDefault();
-                 if (keyPressStart.current) return; // Prevent multiple presses
+                 if (keyPressStart.current) return; 
                  keyPressStart.current = { key: key, time: Date.now() };
 
                  pressTimer.current = setTimeout(() => {
@@ -284,7 +319,7 @@ export default function App() {
                          if (element) element.click();
                      } else if (key === 'Escape') {
                          // Long press escape
-                         handleStopSpeak();
+                         stopSpeaking();
                          setGameState('cover');
                      }
                      
@@ -306,7 +341,6 @@ export default function App() {
                 } else if (key === 'Escape') {
                     if (isSettingsOpen) {
                         setIsSettingsOpen(false);
-                        // Focus context will be set back to 'game' by the useEffect
                     } else {
                         setFocusContext(prev => prev === 'game' ? 'top-bar' : 'game');
                         setFocusIndex(0);
@@ -323,7 +357,7 @@ export default function App() {
             window.removeEventListener('keyup', handleKeyUp);
             clearTimeout(pressTimer.current);
         };
-    }, [oneButtonMode, focusContext, focusIndex, cards, gameState, isSettingsOpen, unlockedLevel, godMode]);
+    }, [oneButtonMode, focusContext, focusIndex, cards, gameState, isSettingsOpen, unlockedLevel, godMode, stopSpeaking]);
 
 
     // Update focus context based on game state
@@ -361,19 +395,19 @@ export default function App() {
         if (ttsManuallyStopped) return;
         speak(text, () => setIsSpeaking(false));
         setIsSpeaking(true);
-    }, [ttsManuallyStopped]);
+    }, [ttsManuallyStopped, speak]);
 
     const handleManualSpeak = useCallback((text) => {
         setTtsManuallyStopped(false);
         speak(text, () => setIsSpeaking(false));
         setIsSpeaking(true);
-    }, []);
+    }, [speak]);
 
     const handleStopSpeak = useCallback(() => {
         stopSpeaking();
         setIsSpeaking(false);
         setTtsManuallyStopped(true);
-    }, []);
+    }, [stopSpeaking]);
 
     const shuffleAndDeal = useCallback(() => {
         handleStopSpeak();
@@ -435,7 +469,7 @@ export default function App() {
                 setTimeout(() => setFlippedCards([]), 1500);
             }
         }
-    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, levelConfig, showFact]);
+    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, levelConfig, showFact, speak]);
 
     useEffect(() => {
         if (matchedPairs.length > 0 && matchedPairs.length === levelConfig.cards.length) {
@@ -448,7 +482,7 @@ export default function App() {
                 localStorage.setItem('unlockedLevel', newUnlockedLevel.toString());
             }
         }
-    }, [matchedPairs, levelConfig, isGuideMode, moves, currentLevel, unlockedLevel]);
+    }, [matchedPairs, levelConfig, isGuideMode, moves, currentLevel, unlockedLevel, speak]);
 
     const handleContinueFromFact = () => {
         handleStopSpeak();
@@ -482,7 +516,7 @@ export default function App() {
                     <div className="bg-green-800 bg-opacity-80 p-10 rounded-xl shadow-2xl text-center backdrop-blur-sm">
                         <h1 className="text-6xl font-bold mb-4 text-white" style={{ fontFamily: 'serif' }}>കഥ Cards</h1>
                         <p className="text-green-100 text-xl mb-8">Select a level to begin your journey through Kerala.</p>
-                        <div className="flex justify-center space-x-4">
+                        <div className="flex justify-center items-center flex-wrap gap-4">
                             {LEVEL_CONFIG.map((level, index) => (
                                 <button 
                                     id={`level-btn-${index}`}
@@ -495,6 +529,19 @@ export default function App() {
                                 </button>
                             ))}
                         </div>
+                        
+                        <div className="mt-8 p-4 bg-green-900 bg-opacity-50 rounded-lg max-w-2xl text-left text-sm text-green-100 mx-auto">
+                            <h3 className="text-xl font-bold mb-2 text-teal-300 text-center">How to Play</h3>
+                            <p className="mb-2"><strong className="text-white">Goal:</strong> Find all the matching sets of cards on the board.</p>
+                            <h4 className="font-bold text-white mt-2">One-Button Mode (Keyboard)</h4>
+                            <ul className="list-disc list-inside space-y-1 mt-1">
+                                <li><strong className="text-white">Tap [SPACE]:</strong> Moves highlight to the next item.</li>
+                                <li><strong className="text-white">Hold [SPACE]:</strong> Selects the highlighted item.</li>
+                                <li><strong className="text-white">Tap [ESCAPE]:</strong> Switches focus between the game area & top-bar.</li>
+                                <li><strong className="text-white">Hold [ESCAPE]:</strong> Quits the level to return here.</li>
+                            </ul>
+                        </div>
+
                          <p className="mt-4 text-sm text-teal-400">One Button Mode is ON</p>
                     </div>
                     <button onClick={() => setGodMode(true)} className="absolute bottom-4 left-4 text-yellow-600"><Star size={16}/></button>
