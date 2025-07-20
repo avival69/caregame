@@ -480,7 +480,7 @@ export default function App() {
                 <GlobalStyles />
                 <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-green-900">
                     <div className="bg-green-800 bg-opacity-80 p-10 rounded-xl shadow-2xl text-center backdrop-blur-sm">
-                        <h1 className="text-6xl font-bold mb-4 text-white" style={{ fontFamily: 'serif' }}>Care Game</h1>
+                        <h1 className="text-6xl font-bold mb-4 text-white" style={{ fontFamily: 'serif' }}>കഥ Cards</h1>
                         <p className="text-green-100 text-xl mb-8">Select a level to begin your journey through Kerala.</p>
                         <div className="flex justify-center space-x-4">
                             {LEVEL_CONFIG.map((level, index) => (
@@ -556,7 +556,7 @@ export default function App() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-                <h1 className="text-4xl md:text-5xl font-bold mb-1 text-center" style={{ fontFamily: 'serif' }}>Care Game</h1>
+                <h1 className="text-4xl md:text-5xl font-bold mb-1 text-center" style={{ fontFamily: 'serif' }}>കഥ Cards</h1>
                 <p className="mb-4 text-lg">Level {currentLevel} | Moves: {moves}</p>
                 <div className={`grid ${levelConfig.grid} gap-2 md:gap-3 w-full`}>
                     {cards.map((card, index) => <Card key={card.id} card={card} onCardClick={handleCardClick} isFlipped={flippedCards.some(c => c.id === card.id)} isMatched={matchedPairs.includes(card.type)} isHighlighted={(focusContext === 'game' && index === focusIndex) || (isGuideMode && index === focusIndex)} isHighContrast={isHighContrast} isSimpleMode={isSimpleMode} />)}
