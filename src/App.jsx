@@ -3,27 +3,85 @@ import * as Tone from 'tone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, RefreshCw, Award, Volume2, VolumeX, PlayCircle, StopCircle, ArrowLeft, Star } from 'lucide-react';
 
-// --- FONT AND STYLE LOADER ---
+// --- GLOBAL STYLES COMPONENT ---
+
 const GlobalStyles = () => {
     useEffect(() => {
-        const fontLink = document.createElement('link');
-        fontLink.href = "https://fonts.googleapis.com/css2?family=Open+Sans&family=OpenDyslexic:wght@400;700&display=swap";
-        fontLink.rel = 'stylesheet';
-        document.head.appendChild(fontLink);
         const style = document.createElement('style');
         style.textContent = `
-          .font-opensans { font-family: 'Open Sans', sans-serif; }
-          .font-opendyslexic { font-family: 'OpenDyslexic', sans-serif; }
-          .perspective-1000 { perspective: 1000px; }
-          .preserve-3d { transform-style: preserve-3d; }
-          .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; position: absolute; width: 100%; height: 100%; }
-          .rotate-y-180 { transform: rotateY(180deg); }
+            /* Import Google Font for standard text */
+            @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap");
+
+            /* Define the local OpenDyslexic font */
+            @font-face {
+              font-family: 'OpenDyslexic';
+              src: url('src/assets/fonts/OpenDyslexic/OpenDyslexic-Bold.otf') format('opentype');
+              font-weight: normal;
+              font-style: normal;
+            }
+
+            @font-face {
+              font-family: 'OpenDyslexic';
+              src: url('src/assets/fonts/OpenDyslexic/OpenDyslexic-Regular.otf') format('opentype');
+              font-weight: bold;
+              font-style: normal;
+            }
+
+            /* Base body styles */
+            body {
+              margin: 0;
+              font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
+            }
+
+            /* Font utility classes */
+            .font-opensans { 
+              font-family: 'Open Sans', sans-serif; 
+            }
+
+            .dyslexia-font { 
+              font-family: 'OpenDyslexic', sans-serif; 
+            }
+
+            /* 3D card flipping utility classes */
+            .perspective-1000 { 
+              perspective: 1000px; 
+            }
+
+            .preserve-3d { 
+              transform-style: preserve-3d; 
+            }
+
+            .backface-hidden { 
+              backface-visibility: hidden; 
+              -webkit-backface-visibility: hidden; 
+              position: absolute; 
+              width: 100%; 
+              height: 100%; 
+            }
+
+            .rotate-y-180 { 
+              transform: rotateY(180deg); 
+            }
+
+            /* Ensure a clean base for the app */
+            #root {
+              min-height: 100vh;
+              display: flex;
+              flex-direction: column;
+            }
         `;
         document.head.appendChild(style);
-        return () => { document.head.removeChild(fontLink); document.head.removeChild(style); };
+        return () => {
+            document.head.removeChild(style);
+        };
     }, []);
     return null;
 };
+
 
 // --- KERALA-THEMED CARD BACK PATTERN ---
 const CardBackPattern = ({ className }) => (
@@ -60,7 +118,6 @@ const LEVEL_CONFIG = [
 // --- AUDIO ENGINE ---
 const cardSynths = ALL_CARD_TYPES.map(() => new Tone.Synth({ oscillator: { type: 'sine' } }).toDestination());
 const specialSounds = { match: new Tone.Synth().toDestination(), mismatch: new Tone.Synth().toDestination(), win: new Tone.PolySynth(Tone.Synth).toDestination() };
-const bgmPlayer = new Tone.Player({ url: "https://cdn.jsdelivr.net/gh/devoss-inc/files/soothing-lullaby.mp3", loop: true, autostart: false, volume: -12 }).toDestination();
 const playSound = (cardId) => { if (Tone.context.state !== 'running') Tone.context.resume(); const freq = 220 * Math.pow(2, ((cardId % cardSynths.length) * 2) / 12); cardSynths[cardId % cardSynths.length].triggerAttackRelease(freq, '8n'); };
 const playSpecialSound = (type) => { if (Tone.context.state !== 'running') Tone.context.resume(); const now = Tone.now(); if (type === 'match') { specialSounds.match.triggerAttackRelease('C4', '8n', now); specialSounds.match.triggerAttackRelease('G4', '8n', now + 0.2); } else if (type === 'mismatch') { specialSounds.mismatch.triggerAttackRelease('C3', '8n', now); } else if (type === 'win') { specialSounds.win.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '2n', now); } };
 const speak = (text, onEndCallback) => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.rate = 1.2; utterance.onend = onEndCallback; speechSynthesis.speak(utterance); } else { if(onEndCallback) onEndCallback(); } };
@@ -68,7 +125,9 @@ const stopSpeaking = () => { if ('speechSynthesis' in window) { speechSynthesis.
 
 // --- CARD COMPONENT ---
 const Card = React.memo(({ card, onCardClick, isFlipped, isMatched, isHighlighted, isHighContrast, isSimpleMode }) => {
-    const { icon: KeralaIcon } = KERALA_DATA[card.type];
+    const { icon: KeralaIcon } = KERALA_DATA[card.type] || {};
+    if (!KeralaIcon) return null;
+
     const handleSelect = () => !isFlipped && !isMatched && onCardClick(card);
     const frontBg = isHighContrast ? 'bg-white' : 'bg-green-100';
     const frontText = isHighContrast ? 'text-black' : 'text-green-900';
@@ -78,11 +137,11 @@ const Card = React.memo(({ card, onCardClick, isFlipped, isMatched, isHighlighte
     const isFaceUp = isSimpleMode || isFlipped || isMatched;
 
     return (
-        <div className={`w-full h-full perspective-1000 ${isMatched ? 'opacity-60' : ''}`} onClick={handleSelect} role="button" aria-pressed={isFlipped} aria-label={`${card.type} card`}>
+        <div tabIndex={-1} className={`w-full h-full perspective-1000 ${isMatched ? 'opacity-60' : ''} rounded-lg focus:outline-none ${isHighlighted ? 'ring-4 ring-teal-400' : ''}`} onClick={handleSelect} role="button" aria-pressed={isFlipped} aria-label={`${card.type} card`}>
             <motion.div className="relative w-full h-full preserve-3d" 
                 animate={{ rotateY: isFaceUp ? 180 : 0 }} 
                 transition={{ duration: 0.6 }}>
-                <div className={`absolute w-full h-full backface-hidden flex items-center justify-center rounded-lg shadow-lg ${isHighlighted ? 'ring-4 ring-teal-400' : ''} ${backBg} border-2 overflow-hidden`}>
+                <div className={`absolute w-full h-full backface-hidden flex items-center justify-center rounded-lg shadow-lg ${backBg} border-2 overflow-hidden`}>
                     <CardBackPattern className={`w-full h-full p-2 ${backIcon}`} />
                 </div>
                 <div className={`absolute w-full h-full backface-hidden flex flex-col items-center justify-center rounded-lg shadow-lg border-2 ${frontBg} ${frontText} rotate-y-180`}>
@@ -113,7 +172,7 @@ const StoryModal = ({ story, title, onStart, isSpeaking, onAutoSpeak, onManualSp
 
 const FactModal = ({ fact, onContinue, isSpeaking, onAutoSpeak, onManualSpeak, onStopSpeak }) => {
     const { icon: Icon, name, text } = fact;
-    useEffect(() => { onAutoSpeak(text); }, [fact, onAutoSpeak]);
+    useEffect(() => { onAutoSpeak(text); }, [fact, onAutoSpeak, text]);
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40 p-4">
             <motion.div initial={{ scale: 0.7 }} animate={{ scale: 1 }} className="bg-green-800 p-8 rounded-xl shadow-2xl text-center max-w-lg w-full flex flex-col items-center">
@@ -182,10 +241,24 @@ export default function App() {
 
     const hasInteracted = useRef(false);
     const levelConfig = LEVEL_CONFIG[currentLevel - 1];
+    const bgmPlayer = useRef(null);
+    const [isMusicLoaded, setIsMusicLoaded] = useState(false);
 
     const isHighContrast = blindAssist;
     const isGuideMode = blindAssist;
-    const useOpenDyslexic = dyslexiaAssist;
+
+    useEffect(() => {
+        bgmPlayer.current = new Tone.Player({
+            url: "https://cdn.jsdelivr.net/gh/devoss-inc/files/soothing-lullaby.mp3",
+            loop: true,
+            autostart: false,
+            volume: -12,
+            onload: () => setIsMusicLoaded(true),
+        }).toDestination();
+         return () => {
+            bgmPlayer.current?.dispose();
+        };
+    }, []);
 
     useEffect(() => {
         const savedLevel = localStorage.getItem('unlockedLevel');
@@ -240,14 +313,16 @@ export default function App() {
         if (!hasInteracted.current) {
             hasInteracted.current = true;
             if (Tone.context.state !== 'running') Tone.context.resume();
-            if (!isMuted && bgmPlayer.state !== 'started') bgmPlayer.start();
+            if (!isMuted && isMusicLoaded && bgmPlayer.current.state !== 'started') {
+                bgmPlayer.current.start();
+            }
         }
     };
 
     const handleCardClick = useCallback((clickedCard) => {
         userInteraction();
         const isAlreadyFlipped = flippedCards.some(c => c.id === clickedCard.id);
-        if (flippedCards.length === levelConfig.matchSize || isGameWon || isAlreadyFlipped || matchedPairs.includes(clickedCard.type)) return;
+        if (showFact || flippedCards.length === levelConfig.matchSize || isGameWon || isAlreadyFlipped || matchedPairs.includes(clickedCard.type)) return;
 
         if (isGuideMode) speak(clickedCard.type, () => {});
         playSound(ALL_CARD_TYPES.indexOf(clickedCard.type));
@@ -268,73 +343,44 @@ export default function App() {
                 setTimeout(() => setFlippedCards([]), 1500);
             }
         }
-    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, moves, levelConfig]);
+    }, [flippedCards, isGameWon, isGuideMode, matchedPairs, levelConfig, showFact]);
 
     useEffect(() => {
         if (matchedPairs.length > 0 && matchedPairs.length === levelConfig.cards.length) {
             setIsGameWon(true); 
             playSpecialSound('win');
             if (isGuideMode) speak(`You completed the level in ${moves} moves.`, () => {});
-            if (currentLevel === unlockedLevel) {
+            if (currentLevel === unlockedLevel && currentLevel < LEVEL_CONFIG.length) {
                 const newUnlockedLevel = unlockedLevel + 1;
                 setUnlockedLevel(newUnlockedLevel);
-                localStorage.setItem('unlockedLevel', newUnlockedLevel);
+                localStorage.setItem('unlockedLevel', newUnlockedLevel.toString());
             }
         }
     }, [matchedPairs, levelConfig, isGuideMode, moves, currentLevel, unlockedLevel]);
 
     const handleContinueFromFact = () => {
-        // Don't change the manual stop state here, just stop current speech
-        stopSpeaking(); 
-        setIsSpeaking(false);
+        handleStopSpeak();
         setShowFact(null);
         if(isGameWon) {
             setGameState('won');
         }
     };
 
-    const toggleMute = () => { userInteraction(); setIsMuted(current => { const newState = !current; if (newState) bgmPlayer.stop(); else if (bgmPlayer.state !== 'started') bgmPlayer.start(); return newState; }); };
-    
-    // --- TTS Navigation Logic ---
-    const focusableElements = {
-        cover: ['Level 1', 'Level 2', 'Level 3'],
-        playing: [...cards.map((c, i) => `Card ${i + 1}, ${c.type}`), 'Back to Levels', 'Toggle Music', 'Restart Level', 'Settings'],
-        won: ['Change Level', 'Next Level'],
-        story: ['Start Level', 'Read Aloud'],
-        fact: ['Continue', 'Read Aloud']
+    const toggleMute = () => { 
+        userInteraction(); 
+        setIsMuted(current => { 
+            const newState = !current; 
+            if (newState) {
+                if (bgmPlayer.current) bgmPlayer.current.stop();
+            } else if (isMusicLoaded && bgmPlayer.current && bgmPlayer.current.state !== 'started') {
+                bgmPlayer.current.start();
+            }
+            return newState; 
+        }); 
     };
-
-    const handleTTSNavigation = useCallback((e) => {
-        if (!isGuideMode || e.code !== 'Space') return;
-        e.preventDefault();
-        
-        const currentFocusable = focusableElements[gameState] || [];
-        if(currentFocusable.length === 0) return;
-
-        const newIndex = (ttsFocusIndex + 1) % currentFocusable.length;
-        setTtsFocusIndex(newIndex);
-        speak(currentFocusable[newIndex], () => {});
-
-    }, [isGuideMode, gameState, ttsFocusIndex, cards]);
-
-    const handleTTSSelection = useCallback((e) => {
-        if(!isGuideMode || e.code !== 'Space') return;
-        e.preventDefault();
-        if(gameState === 'playing' && ttsFocusIndex < cards.length) {
-            handleCardClick(cards[ttsFocusIndex]);
-        }
-    }, [isGuideMode, gameState, ttsFocusIndex, cards, handleCardClick]);
-
-    useEffect(() => {
-        window.addEventListener('keyup', handleTTSNavigation);
-        return () => {
-            window.removeEventListener('keyup', handleTTSNavigation);
-        };
-    }, [handleTTSNavigation, handleTTSSelection]);
-
-
+    
     const themeClasses = isHighContrast ? 'bg-black text-white' : 'bg-green-900 text-green-100';
-    const fontClass = useOpenDyslexic ? 'font-opendyslexic' : 'font-opensans';
+    const fontClass = dyslexiaAssist ? 'dyslexia-font' : 'font-opensans';
 
     if (gameState === 'cover') {
         return (
@@ -345,13 +391,18 @@ export default function App() {
                         <h1 className="text-6xl font-bold mb-4 text-white" style={{ fontFamily: 'serif' }}>Care Game</h1>
                         <p className="text-green-100 text-xl mb-8">Select a level to begin your journey through Kerala.</p>
                         <div className="flex justify-center space-x-4">
-                            {LEVEL_CONFIG.map(level => (
-                                <button key={level.level} onClick={() => selectLevel(level.level)} disabled={!godMode && level.level > unlockedLevel} className="px-8 py-4 bg-green-600 text-white font-bold text-xl rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                            {LEVEL_CONFIG.map((level) => (
+                                <button 
+                                    key={level.level} 
+                                    onClick={() => selectLevel(level.level)} 
+                                    disabled={!godMode && level.level > unlockedLevel}
+                                    className="px-8 py-4 bg-green-600 text-white font-bold text-xl rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed focus:ring-4 focus:ring-teal-400"
+                                >
                                     Level {level.level}
                                 </button>
                             ))}
                         </div>
-                        <p className="text-xs text-gray-400 mt-6">For screen reader users: Use Spacebar to cycle through options and hold Spacebar to select.</p>
+                        <p className="text-xs text-gray-400 mt-6">For screen reader users: Use Tab to cycle and Enter to select.</p>
                     </div>
                     <button onClick={() => setGodMode(true)} className="absolute bottom-4 left-4 text-yellow-600"><Star size={16}/></button>
                 </div>
@@ -416,9 +467,9 @@ export default function App() {
                 
                 <AnimatePresence>
                     {deafAssist && showFact && (
-                         <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} className="absolute inset-0 flex items-center justify-center z-20 bg-black bg-opacity-50">
+                        <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} className="absolute inset-0 flex items-center justify-center z-20 bg-black bg-opacity-50">
                             <div className="px-12 py-8 bg-green-500 text-white text-5xl font-bold rounded-lg shadow-xl">Correct!</div>
-                         </motion.div>
+                        </motion.div>
                     )}
                     {gameState === 'won' && (
                         <LevelEndModal 
