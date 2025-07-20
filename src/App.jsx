@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Tone from 'tone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, RefreshCw, Award, Volume2, VolumeX, PlayCircle, StopCircle, ArrowLeft, Star } from 'lucide-react';
+import bgmAudio from './autism_bgm.mp3';
 
 // --- GLOBAL STYLES COMPONENT ---
 const GlobalStyles = () => {
@@ -229,17 +230,17 @@ export default function App() {
 
         const getFocusCount = () => {
              switch (focusContext) {
-                case 'menu': return LEVEL_CONFIG.filter(l => godMode || l.level <= unlockedLevel).length;
-                case 'game': return cards.length;
-                case 'modal':
-                    if (showFact) return 2;
-                    if (gameState === 'story') return 2;
-                    if (gameState === 'won') return (levelConfig.endStory && currentLevel < LEVEL_CONFIG.length) ? 3 : 2;
-                    return 0;
-                case 'settings': return 6; // Now 6 toggles
-                case 'top-bar': return 4;
-                default: return 0;
-            }
+                 case 'menu': return LEVEL_CONFIG.filter(l => godMode || l.level <= unlockedLevel).length;
+                 case 'game': return cards.length;
+                 case 'modal':
+                     if (showFact) return 2;
+                     if (gameState === 'story') return 2;
+                     if (gameState === 'won') return (levelConfig.endStory && currentLevel < LEVEL_CONFIG.length) ? 3 : 2;
+                     return 0;
+                 case 'settings': return 6; // Now 6 toggles
+                 case 'top-bar': return 4;
+                 default: return 0;
+             }
         };
 
         const handleKeyDown = (e) => {
@@ -248,47 +249,47 @@ export default function App() {
 
             if (key === 'Space' || key === 'Escape') {
                  e.preventDefault();
-                if (keyPressStart.current) return; // Prevent multiple presses
-                keyPressStart.current = { key: key, time: Date.now() };
+                 if (keyPressStart.current) return; // Prevent multiple presses
+                 keyPressStart.current = { key: key, time: Date.now() };
 
-                pressTimer.current = setTimeout(() => {
-                    // --- PRESS & HOLD ACTION ---
-                    if (!keyPressStart.current || keyPressStart.current.key !== key) return;
+                 pressTimer.current = setTimeout(() => {
+                     // --- PRESS & HOLD ACTION ---
+                     if (!keyPressStart.current || keyPressStart.current.key !== key) return;
 
-                    if (key === 'Space') {
-                        const focusCount = getFocusCount();
-                        if (focusCount === 0) return;
-                        
-                        let element;
-                        switch (focusContext) {
-                            case 'menu':
-                                element = document.getElementById(`level-btn-${focusIndex}`);
-                                break;
-                            case 'game':
-                                if(cards[focusIndex]) {
-                                    handleCardClick(cards[focusIndex]);
-                                }
-                                break;
-                            case 'modal':
-                                element = document.getElementById(`modal-btn-${focusIndex}`);
-                                break;
-                            case 'settings':
-                                element = document.getElementById(`setting-toggle-${focusIndex}`);
-                                if(element) element.querySelector('label')?.click();
-                                break;
-                            case 'top-bar':
-                                element = document.getElementById(`top-bar-btn-${focusIndex}`);
-                                break;
-                        }
-                        if (element) element.click();
-                    } else if (key === 'Escape') {
-                        // Long press escape
-                        handleStopSpeak();
-                        setGameState('cover');
-                    }
-                    
-                    keyPressStart.current = null; 
-                }, 500);
+                     if (key === 'Space') {
+                         const focusCount = getFocusCount();
+                         if (focusCount === 0) return;
+                         
+                         let element;
+                         switch (focusContext) {
+                             case 'menu':
+                                 element = document.getElementById(`level-btn-${focusIndex}`);
+                                 break;
+                             case 'game':
+                                 if(cards[focusIndex]) {
+                                     handleCardClick(cards[focusIndex]);
+                                 }
+                                 break;
+                             case 'modal':
+                                 element = document.getElementById(`modal-btn-${focusIndex}`);
+                                 break;
+                             case 'settings':
+                                 element = document.getElementById(`setting-toggle-${focusIndex}`);
+                                 if(element) element.querySelector('label')?.click();
+                                 break;
+                             case 'top-bar':
+                                 element = document.getElementById(`top-bar-btn-${focusIndex}`);
+                                 break;
+                         }
+                         if (element) element.click();
+                     } else if (key === 'Escape') {
+                         // Long press escape
+                         handleStopSpeak();
+                         setGameState('cover');
+                     }
+                     
+                     keyPressStart.current = null; 
+                 }, 500);
             }
         };
 
@@ -338,7 +339,7 @@ export default function App() {
 
     useEffect(() => {
         bgmPlayer.current = new Tone.Player({
-            url: "https://cdn.jsdelivr.net/gh/devoss-inc/files/soothing-lullaby.mp3",
+            url: bgmAudio,
             loop: true,
             autostart: false,
             volume: -12,
